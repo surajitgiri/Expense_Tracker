@@ -1,6 +1,8 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useCurrency } from "@/context/CurrencyContext"
+
 
 type User = {
   id: string
@@ -17,7 +19,7 @@ type User = {
 export default function SettingsPage() {
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [activeTab, setActiveTab] = useState<"profile" | "password" | "danger">("profile")
+  const [activeTab, setActiveTab] = useState<"profile" | "password"| "currency" | "danger">("profile")
 
   // Profile form
   const [name, setName] = useState("")
@@ -38,6 +40,8 @@ export default function SettingsPage() {
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false)
   const [deleting, setDeleting] = useState(false)
   const [deleteError, setDeleteError] = useState("")
+
+  const {currency , setCurrency , currencies} = useCurrency();
 
   useEffect(() => {
     const fetchUser = async () => {
@@ -150,6 +154,7 @@ export default function SettingsPage() {
   const tabs = [
     { key: "profile",  label: "Profile" },
     { key: "password", label: "Password" },
+    { key: "currency", label: "Currency" },
     { key: "danger",   label: "Danger Zone" },
   ] as const
 
@@ -313,6 +318,29 @@ export default function SettingsPage() {
         </div>
       )}
 
+{/* Tab: Currency */}
+      {activeTab == "currency" && (
+        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-6 mb-4">
+          <h2 className="text-base font-semibold text-gray-700 mb-4">Currency</h2>
+          <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+            {currencies.map((c) => (
+              <button
+               key={c.code}
+                onClick={() => setCurrency(c)}
+                className={`border rounded-xl p-3 text-left transition ${currency.code === c.code
+                ? "border-blue-500 bg-blue-50"
+                :"border-gray-200 hover:border-blue-300"
+              }`}
+                >
+                  <p className="text-lg font-bold text-gray-800">{c.symbol}</p>
+                  <p className="text-xs font-medium text-gray-700">{c.code}</p>
+                  <p className="text-xs text-gray-400">{c.name}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      )}
+      
       {/* Tab: Danger Zone */}
       {activeTab === "danger" && (
         <div className="bg-white rounded-xl border border-red-100 shadow-sm p-6">
@@ -356,6 +384,8 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      
 
     </div>
   )

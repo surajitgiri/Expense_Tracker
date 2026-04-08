@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useCurrency } from "@/context/CurrencyContext"
 
 type Transaction = {
   id: string
@@ -30,6 +31,8 @@ export default function DashboardPage() {
   const [loading, setLoading] = useState(true)
 
   const currentMonth = new Date().toISOString().slice(0, 7)
+
+  const {format} = useCurrency();
 
   useEffect(() => {
     const fetchData = async () => {
@@ -100,18 +103,18 @@ export default function DashboardPage() {
         <div className="bg-white p-5 rounded-2xl shadow-sm">
           <h2 className="text-sm text-gray-500">Total Balance</h2>
           <p className={`text-2xl font-bold mt-2 ${netBalance >= 0 ? "text-green-600" : "text-red-500"}`}>
-            ${netBalance.toFixed(2)}
+            {format(netBalance)}
           </p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm">
           <h2 className="text-sm text-gray-500">Monthly Expenses</h2>
-          <p className="text-2xl font-bold text-red-500 mt-2">-${totalExpense.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-red-500 mt-2">-{format(totalExpense)}</p>
         </div>
 
         <div className="bg-white p-5 rounded-2xl shadow-sm">
           <h2 className="text-sm text-gray-500">Monthly Income</h2>
-          <p className="text-2xl font-bold text-blue-600 mt-2">+${totalIncome.toFixed(2)}</p>
+          <p className="text-2xl font-bold text-blue-600 mt-2">+{format(totalIncome)}</p>
         </div>
 
       </div>
@@ -139,7 +142,7 @@ export default function DashboardPage() {
                   </div>
                 </div>
                 <span className={t.type === "income" ? "text-green-600" : "text-red-500"}>
-                  {t.type === "income" ? "+" : "-"}${t.amount.toFixed(2)}
+                  {t.type === "income" ? "+" : "-"}{format(t.amount)}
                 </span>
               </div>
             ))}

@@ -3,6 +3,7 @@
 import React, { useEffect, useState } from "react"
 import jsPDF from "jspdf"
 import autoTable from  "jspdf-autotable"
+import { useCurrency } from "@/context/CurrencyContext"
 
 type Category = {
   id: string
@@ -40,6 +41,12 @@ export default function TransactionPage() {
     date: new Date().toISOString().split("T")[0],
     categoryId: ""
   })
+
+  const {format , currency} = useCurrency();
+
+  const pdfFormat = (amount: number) => {
+    return `${currency.code} ${amount.toFixed(2)}`
+  }
 
   const fetchTransactions = async () => {
     setLoading(true)
@@ -132,9 +139,9 @@ export default function TransactionPage() {
   // Summary
   doc.setFontSize(11)
   doc.setTextColor(40, 40, 40)
-  doc.text(`Total Income:  $${totalIncome.toFixed(2)}`,  14, 42)
-  doc.text(`Total Expense: $${totalExpense.toFixed(2)}`, 14, 50)
-  doc.text(`Balance:       $${(totalIncome - totalExpense).toFixed(2)}`, 14, 58)
+  doc.text(`Total Income:  ${pdfFormat(totalIncome)}`,  14, 42)
+  doc.text(`Total Expense: ${pdfFormat(totalExpense)}`, 14, 50)
+  doc.text(`Balance:       ${pdfFormat(totalIncome - totalExpense)}`, 14, 58)
 
   // Table
   autoTable(doc, {
@@ -147,7 +154,7 @@ export default function TransactionPage() {
       t.description || "—",
       t.category?.name || "—",
       t.type.charAt(0).toUpperCase() + t.type.slice(1),
-      `${t.type === "income" ? "+" : "-"}$${t.amount.toFixed(2)}`,
+      `${t.type === "income" ? "+" : "-"}${pdfFormat(t.amount)}`,
     ]),
     styles: {
       fontSize: 10,
@@ -221,16 +228,16 @@ export default function TransactionPage() {
       <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
           <p className="text-xs md:text-sm text-gray-500 mb-1">Income</p>
-          <p className="text-base md:text-xl font-semibold text-green-600">+${totalIncome.toFixed(2)}</p>
+          <p className="text-base md:text-xl font-semibold text-green-600">+{format(totalIncome)}</p>
         </div>
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
           <p className="text-xs md:text-sm text-gray-500 mb-1">Expenses</p>
-          <p className="text-base md:text-xl font-semibold text-red-500">-${totalExpense.toFixed(2)}</p>
+          <p className="text-base md:text-xl font-semibold text-red-500">-{format(totalExpense)}</p>
         </div>
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
           <p className="text-xs md:text-sm text-gray-500 mb-1">Balance</p>
           <p className={`text-base md:text-xl font-semibold ${totalIncome - totalExpense >= 0 ? "text-indigo-600" : "text-red-500"}`}>
-            ${(totalIncome - totalExpense).toFixed(2)}
+            {format(totalIncome - totalExpense)}
           </p>
         </div>
       </div>
@@ -308,7 +315,7 @@ export default function TransactionPage() {
                     </span>
                   </td>
                   <td className={`px-5 py-3 text-right font-medium ${t.type === "income" ? "text-green-600" : "text-red-500"}`}>
-                    {t.type === "income" ? "+" : "-"}${t.amount.toFixed(2)}
+                    {t.type === "income" ? "+" : "-"}{format(t.amount)}
                   </td>
                   <td className="px-5 py-3 text-right">
                     <div className="flex justify-end gap-3">

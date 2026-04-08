@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect, useState } from "react";
+import { useCurrency } from "@/context/CurrencyContext";
 
 type Category = {
   id: string;
@@ -38,6 +39,8 @@ export default function BudgetPage() {
   });
   const [submitting, setSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
+
+  const {format} = useCurrency();
 
   const fetchBudgets = async () => {
     setLoading(true);
@@ -185,13 +188,13 @@ export default function BudgetPage() {
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
           <p className="text-xs md:text-sm text-gray-500 mb-1">Total Budget</p>
           <p className="text-base md:text-xl font-semibold text-gray-800">
-            ${totalBudget.toFixed(2)}
+            {format(totalBudget)}
           </p>
         </div>
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
           <p className="text-xs md:text-sm text-gray-500 mb-1">Total Spent</p>
           <p className="text-base md:text-xl font-semibold text-indigo-600">
-            ${totalSpent.toFixed(2)}
+            {format(totalSpent)}
           </p>
         </div>
         <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
@@ -257,18 +260,18 @@ export default function BudgetPage() {
                 <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
                   {/* Spent / limit */}
                   <p className="text-sm font-semibold text-gray-800 text-right">
-                    ${budget.spent.toFixed(2)}
+                    {format(budget.spent)}
                     <span className="text-gray-400 font-normal">
                       {" "}
-                      / ${budget.limit.toFixed(2)}
+                      / {format(budget.limit)}
                     </span>
                   </p>
 
                   {/* Remaining */}
                   <p className="text-xs text-gray-400">
                     {budget.remaining >= 0
-                      ? `$${budget.remaining.toFixed(2)} left`
-                      : `$${Math.abs(budget.remaining).toFixed(2)} over`}
+                      ? `${format(budget.remaining)} left`
+                      : `${format(Math.abs(budget.remaining))} over`}
                   </p>
 
                   {/* Edit / Delete */}

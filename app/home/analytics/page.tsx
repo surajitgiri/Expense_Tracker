@@ -5,6 +5,8 @@ import SpendingPieChart from "@/components/charts/SpendingPieChart"
 import DailyBarChart from "@/components/charts/DailyBarChart"
 import TrendLineChart from "@/components/charts/TrendLineChart"
 
+import { useCurrency } from "@/context/CurrencyContext"
+
 type CategoryData = {
     name: string
     color: string
@@ -36,6 +38,8 @@ export default function AnalyticsPage(){
     const [selectedMonth , setSelectedMonth] = useState(
         new Date().toISOString().slice(0,7)
     )
+
+    const {format} = useCurrency();
 
     useEffect(() => {
         const fetchAnalytics = async() => {
@@ -103,17 +107,17 @@ export default function AnalyticsPage(){
                   <div className="flex flex-col md:flex-row gap-4 mb-6">
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                             <p className="text-sm text-gray-500 mb-1">Total Income</p>
-                            <p className="text-xl font-semibold text-green-600">+${totalIncome.toFixed(2)}</p>
+                            <p className="text-xl font-semibold text-green-600">+{format(totalIncome)}</p>
                         </div>
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                             <p className="text-sm text-gray-500 mb-1">Total Expense</p>
-                            <p className="text-xl font-semibold text-red-500">-${totalExpense.toFixed(2)}</p>
+                            <p className="text-xl font-semibold text-red-500">-{format(totalExpense)}</p>
                             </div>
                         
                         <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-4">
                             <p className="text-sm text-gray-500 mb-1">Net Balance</p>
                             <p className={`text-xl font-semibold ${netBalance >= 0 ? "text-blue-600" : "text-red-500"}`}>
-                                ${netBalance.toFixed(2)}
+                                {format(netBalance)}
                             </p>
                         </div>
                     </div>
