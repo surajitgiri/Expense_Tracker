@@ -1,0 +1,126 @@
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model User {
+  id        String   @id @default(cuid())
+  name      String?
+  email     String   @unique
+  password  String
+  theme     String   @default("light")
+  createdAt DateTime @default(now())
+
+  // Email verification
+  isVerified        Boolean   @default(false)
+  verifyToken       String?
+  verifyTokenExpiry DateTime?
+
+  // Forgot password
+  resetToken       String?
+  resetTokenExpiry DateTime?
+
+  subscriptions Subscription[]
+
+  accounts      Account[]
+  goals         SavingsGoal[]
+
+  transaction   Transaction[]
+  budgets       Budget[]
+  categories    Category[]
+  Notifications Notification[]
+}
+
+model Notification {
+  id        String   @id @default(cuid())
+  message   String
+  type      String   // success | warning | info
+  isRead    Boolean  @default(false)
+  userId    String
+  user      User     @relation(fields: [userId], references: [id])
+  createdAt DateTime @default(now())
+}
+
+model Transaction {
+  id          String   @id @default(cuid())
+  amount      Float
+  type        String   // "income" | "expense"
+  description String
+
+  accountId    String?
+  account      Account? @relation(fields: [accountId], references: [id], onDelete: SetNull)
+
+  date        DateTime
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+}
+
+model Budget {
+  id         String   @id @default(cuid())
+  limit      Float
+  month      String
+  categoryId String
+  category   Category @relation(fields: [categoryId], references: [id])
+  userId     String
+  user       User     @relation(fields: [userId], references: [id])
+}
+
+model Category {
+  id          String        @id @default(cuid())
+  name        String
+  color       String
+  icon        String
+  transaction Transaction[]
+  subscriptions Subscription[]
+  budgets     Budget[]
+  userId      String
+  user        User          @relation(fields: [userId], references: [id])
+}
+
+
+
+// Add the Subscription model:
+model Subscription {
+  id          String   @id @default(cuid())
+  name        String
+  amount      Float
+  frequency   String   // "monthly" | "yearly" | "weekly"
+  startDate   DateTime
+  nextDueDate DateTime
+  isActive    Boolean  @default(true)
+  categoryId  String
+  category    Category @relation(fields: [categoryId], references: [id])
+  userId      String
+  user        User     @relation(fields: [userId], references: [id])
+  createdAt   DateTime @default(now())
+}
+
+model Account {
+  id           String        @id @default(cuid())
+  name         String        // e.g. "HDFC Bank", "Main Cash", "Axis Credit Card"
+  type         String        // "Bank" | "Cash" | "Credit Card" | "Savings"
+  balance      Float         @default(0.0)
+  color        String?       @default("#4F46E5")
+  transactions Transaction[]
+  userId       String
+  user         User          @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt    DateTime      @default(now())
+}
+
+model SavingsGoal {
+  id            String   @id @default(cuid())
+  name          String   // e.g. "Emergency Fund", "New Laptop"
+  targetAmount  Float
+  currentAmount Float    @default(0.0)
+  targetDate    DateTime
+  color         String?  @default("#10B981")
+  icon          String?  @default("🎯")
+  userId        String
+  user          User     @relation(fields: [userId], references: [id], onDelete: Cascade)
+  createdAt     DateTime @default(now())
+}

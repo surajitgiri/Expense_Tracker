@@ -67,6 +67,16 @@ export default function BudgetPage() {
     fetchCategories();
   }, [selectedMonth]);
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showModal) {
+        setShowModal(false);
+      }
+    };
+    window.addEventListener("keydown", handleKeyDown);
+    return () => window.removeEventListener("keydown", handleKeyDown);
+  }, [showModal]);
+
   const openAdd = () => {
     setEditTarget(null);
     setForm({ categoryId: "", limit: "", month: selectedMonth });
@@ -154,14 +164,14 @@ export default function BudgetPage() {
   };
 
   return (
-    <div className="p-4 md:p-6 max-w-4xl mx-auto">
+    <div className="space-y-5 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="flex flex-col gap-3 mb-6 md:flex-row md:items-center md:justify-between">
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
         <div>
-          <h1 className="text-xl md:text-2xl font-semibold text-gray-800">
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">
             Budget
           </h1>
-          <p className="text-sm text-gray-400 mt-0.5">
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">
             Track your spending limits by category
           </p>
         </div>
@@ -172,38 +182,39 @@ export default function BudgetPage() {
             type="month"
             value={selectedMonth}
             onChange={(e) => setSelectedMonth(e.target.value)}
-            className="flex-1 md:flex-none border border-gray-200 rounded-lg px-3 py-2 text-sm text-gray-700 outline-none focus:ring-2 focus:ring-indigo-400"
+            className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 rounded-lg px-3 py-2 text-xs sm:text-sm outline-none focus:ring-2 focus:ring-indigo-500"
           />
           <button
             onClick={openAdd}
-            className="bg-indigo-600 cursor-pointer hover:bg-indigo-700 text-white text-sm font-medium px-3 md:px-4 py-2 rounded-lg transition whitespace-nowrap"
+            className="flex items-center justify-center gap-1 bg-indigo-600 cursor-pointer hover:bg-indigo-700 text-white text-xs sm:text-sm font-medium px-3.5 py-2 rounded-lg transition shadow-sm whitespace-nowrap"
           >
-            + Add
+            <span className="text-base leading-none font-bold">+</span>
+            <span>Add</span>
           </button>
         </div>
       </div>
 
       {/* Summary Cards */}
-      <div className="grid grid-cols-3 gap-2 md:gap-4 mb-6">
-        <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">Total Budget</p>
-          <p className="text-base md:text-xl font-semibold text-gray-800">
+      <div className="grid grid-cols-3 gap-2 sm:gap-3 md:gap-4 mb-5">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+          <p className="text-[11px] sm:text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Total Budget</p>
+          <p className="text-sm sm:text-lg md:text-xl font-bold text-gray-900 dark:text-white truncate">
             {format(totalBudget)}
           </p>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">Total Spent</p>
-          <p className="text-base md:text-xl font-semibold text-indigo-600">
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+          <p className="text-[11px] sm:text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Total Spent</p>
+          <p className="text-sm sm:text-lg md:text-xl font-bold text-indigo-600 dark:text-indigo-400 truncate">
             {format(totalSpent)}
           </p>
         </div>
-        <div className="bg-white rounded-xl p-3 md:p-4 shadow-sm border border-gray-100">
-          <p className="text-xs md:text-sm text-gray-500 mb-1">Over Budget</p>
+        <div className="bg-white dark:bg-gray-800 rounded-xl p-3 sm:p-4 shadow-sm border border-gray-100 dark:border-gray-700">
+          <p className="text-[11px] sm:text-xs md:text-sm text-gray-500 dark:text-gray-400 mb-1 font-medium">Over Budget</p>
           <p
-            className={`text-base md:text-xl font-semibold ${overBudgetCount > 0 ? "text-red-500" : "text-green-600"}`}
+            className={`text-sm sm:text-lg md:text-xl font-bold truncate ${overBudgetCount > 0 ? "text-red-500 dark:text-red-400" : "text-green-600 dark:text-green-400"}`}
           >
             {overBudgetCount}{" "}
-            <span className="hidden md:inline">
+            <span className="hidden sm:inline text-xs font-normal">
               {overBudgetCount === 1 ? "category" : "categories"}
             </span>
           </p>
@@ -211,7 +222,7 @@ export default function BudgetPage() {
       </div>
 
       {error && (
-        <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2 mb-4">
+        <p className="text-sm text-red-500 bg-red-50 dark:bg-red-950/30 border border-red-100 dark:border-red-800 rounded-lg px-4 py-2 mb-4">
           {error}
         </p>
       )}
@@ -220,13 +231,13 @@ export default function BudgetPage() {
       {loading ? (
         <p className="text-sm text-gray-400 text-center py-10">Loading...</p>
       ) : budgets.length === 0 ? (
-        <div className="bg-white rounded-xl border border-gray-100 shadow-sm p-10 text-center">
+        <div className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-sm p-8 text-center">
           <p className="text-gray-400 text-sm">
             No budgets set for this month.
           </p>
           <button
             onClick={openAdd}
-            className="mt-3 text-indigo-600 text-sm font-medium hover:underline"
+            className="mt-3 text-indigo-600 dark:text-indigo-400 text-sm font-medium hover:underline"
           >
             Add your first budget →
           </button>
@@ -236,7 +247,7 @@ export default function BudgetPage() {
           {budgets.map((budget) => (
             <div
               key={budget.id}
-              className="bg-white rounded-xl border border-gray-100 shadow-sm p-4 md:p-5"
+              className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs p-3.5 sm:p-4 md:p-5"
             >
               {/* Top section */}
               <div className="flex items-start justify-between mb-3 gap-2">
@@ -249,7 +260,7 @@ export default function BudgetPage() {
                     {budget.category.icon}
                   </div>
                   <div className="min-w-0">
-                    <p className="text-sm font-medium text-gray-700 truncate">
+                    <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 truncate">
                       {budget.category.name}
                     </p>
                     <div className="mt-0.5">{getStatusBadge(budget)}</div>
@@ -257,18 +268,18 @@ export default function BudgetPage() {
                 </div>
 
                 {/* Right: amounts + actions */}
-                <div className="flex flex-col items-end gap-1.5 flex-shrink-0">
+                <div className="flex flex-col items-end gap-1 flex-shrink-0">
                   {/* Spent / limit */}
-                  <p className="text-sm font-semibold text-gray-800 text-right">
+                  <p className="text-sm font-bold text-gray-800 dark:text-gray-100 text-right">
                     {format(budget.spent)}
-                    <span className="text-gray-400 font-normal">
+                    <span className="text-gray-400 dark:text-gray-500 font-normal text-xs sm:text-sm">
                       {" "}
                       / {format(budget.limit)}
                     </span>
                   </p>
 
                   {/* Remaining */}
-                  <p className="text-xs text-gray-400">
+                  <p className="text-xs text-gray-400 dark:text-gray-500">
                     {budget.remaining >= 0
                       ? `${format(budget.remaining)} left`
                       : `${format(Math.abs(budget.remaining))} over`}
@@ -310,13 +321,13 @@ export default function BudgetPage() {
               </div>
 
               {/* Progress Bar */}
-              <div className="w-full bg-gray-100 rounded-full h-2">
+              <div className="w-full bg-gray-100 dark:bg-gray-700 rounded-full h-2">
                 <div
                   className={`h-2 rounded-full transition-all duration-500 ${getBarColor(budget.percentage)}`}
                   style={{ width: `${Math.min(budget.percentage, 100)}%` }}
                 />
               </div>
-              <p className="text-xs text-gray-400 mt-1.5 text-right">
+              <p className="text-xs text-gray-400 dark:text-gray-500 mt-1.5 text-right font-medium">
                 {budget.percentage.toFixed(0)}% used
               </p>
             </div>
@@ -324,27 +335,56 @@ export default function BudgetPage() {
         </div>
       )}
 
-      {/* Modal — bottom sheet on mobile, centered on desktop */}
+      {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 bg-black/40 flex items-end md:items-center justify-center z-50">
-          <div className="bg-white rounded-t-2xl md:rounded-2xl shadow-xl w-full md:max-w-md p-6">
-            <h2 className="text-lg font-semibold text-gray-800 mb-4">
-              {editTarget ? "Edit Budget" : "Add Budget"}
-            </h2>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false);
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700/80 overflow-hidden transform transition-all my-auto max-h-[92dvh] flex flex-col">
+            {/* Header */}
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <span className="text-xl">🎯</span>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                    {editTarget ? "Edit Budget" : "Add Budget"}
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500">
+                    Set a monthly spending limit
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  ESC to close
+                </kbd>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg p-1.5 sm:p-1 rounded-lg transition cursor-pointer"
+                  title="Close (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
 
-            {formError && (
-              <p className="text-sm text-red-500 bg-red-50 border border-red-100 rounded-lg px-4 py-2 mb-3">
-                {formError}
-              </p>
-            )}
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
+              {formError && (
+                <div className="p-3 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl">
+                  {formError}
+                </div>
+              )}
 
-            <form
-              onSubmit={handleSubmit}
-              className="flex flex-col gap-4 text-gray-600"
-            >
-              <div className="flex flex-col gap-1">
-                <label className="text-sm font-medium text-black">
-                  Category
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Category *
                 </label>
                 <select
                   value={form.categoryId}
@@ -352,7 +392,7 @@ export default function BudgetPage() {
                     setForm({ ...form, categoryId: e.target.value })
                   }
                   disabled={!!editTarget}
-                  className="w-full border border-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50 disabled:text-gray-400"
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
                   required
                 >
                   <option value="">Select category</option>
@@ -364,10 +404,10 @@ export default function BudgetPage() {
                 </select>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-4">
-                <div className="flex flex-col gap-1 flex-1">
-                  <label className="text-sm font-medium text-black">
-                    Month
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Month *
                   </label>
                   <input
                     type="month"
@@ -376,14 +416,14 @@ export default function BudgetPage() {
                       setForm({ ...form, month: e.target.value })
                     }
                     disabled={!!editTarget}
-                    className="w-full border border-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400 disabled:bg-gray-50 disabled:text-gray-400"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500 disabled:opacity-60"
                     required
                   />
                 </div>
 
-                <div className="flex flex-col gap-1 flex-1">
-                  <label className="text-sm font-medium text-black">
-                    Spending Limit ($)
+                <div>
+                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                    Spending Limit ({format(0).replace(/[0-9.,\s]/g, "") || "₹"}) *
                   </label>
                   <input
                     type="number"
@@ -393,25 +433,25 @@ export default function BudgetPage() {
                     onChange={(e) =>
                       setForm({ ...form, limit: e.target.value })
                     }
-                    className="w-full border border-gray-400 rounded-lg px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
+                    className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
                     placeholder="e.g. 500"
                     required
                   />
                 </div>
               </div>
 
-              <div className="flex flex-col sm:flex-row gap-3 mt-1">
+              <div className="flex items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-700/40">
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="w-full sm:flex-1 border border-gray-200 text-gray-600 rounded-lg py-2.5 text-sm hover:bg-gray-50 transition"
+                  className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-xl transition cursor-pointer text-center"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={submitting}
-                  className="w-full sm:flex-1 bg-indigo-600 hover:bg-indigo-700 text-white rounded-lg py-2.5 text-sm font-medium transition disabled:opacity-60"
+                  className="flex-1 sm:flex-none px-5 py-2.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow transition disabled:opacity-60 cursor-pointer text-center"
                 >
                   {submitting ? "Saving..." : editTarget ? "Update" : "Create"}
                 </button>

@@ -1,46 +1,72 @@
 "use client"
 
 import { useRouter } from "next/navigation";
-import React, { useState } from "react"
-import {signIn} from "next-auth/react"
+import React, { useState, useEffect } from "react";
 import Link from "next/link";
 
-export default function LoginPage(){
+export default function LoginPage() {
     const router = useRouter();
-    const [email , setEmail] = useState("");
-    const [password , setPassword] = useState("");
-    const [error , setError] = useState("");
-    const [loading , setLoading] = useState(false);
+    const [email, setEmail] = useState("");
+    const [password, setPassword] = useState("");
+    const [error, setError] = useState("");
+    const [loading, setLoading] = useState(false);
+    const [checkingAuth, setCheckingAuth] = useState(true);
 
-    const handleLogin = async(e: React.FormEvent) => {
+    useEffect(() => {
+        const token = localStorage.getItem("token");
+        const hasCookie = document.cookie.includes("token=");
+        if (token || hasCookie) {
+            if (token && !hasCookie) {
+                document.cookie = `token=${token}; path=/; max-age=2592000; SameSite=Lax`;
+            }
+            router.replace("/home/dashboard");
+        } else {
+            setCheckingAuth(false);
+        }
+    }, [router]);
+
+    const handleLogin = async (e: React.FormEvent) => {
         e.preventDefault();
         setError("");
-        setLoading(false);
+        setLoading(true);
 
         try {
-            const res = await signIn("credentials",{
-                email,
-                password,
-                redirect: false,
-            })
+            const res = await fetch("/api/auth/login", {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ email, password }),
+            });
 
-            if(res?.error){
-                setError(res.error)
+            const data = await res.json();
+
+            if (!res.ok) {
+                setError(data.error || "Invalid credentials");
+            } else {
+                localStorage.setItem("token", data.token);
+                // 30 days session
+                document.cookie = `token=${data.token}; path=/; max-age=2592000; SameSite=Lax`;
+                router.push("/home/dashboard");
             }
-            else{
-                router.push("/home/dashboard")
-            }
-        } catch (error) {
-            setError("Something went wrong , please try again")
-        }finally {
+        } catch (err) {
+            setError("Something went wrong, please try again");
+        } finally {
             setLoading(false);
         }
-    }
-    return(
-        <div className="min-h-screen flex items-center justify-center bg-gray-100">
-  <div className="bg-white shadow-lg rounded-2xl p-8 w-full max-w-md space-y-6">
+    };
 
-    <h2 className="text-2xl font-semibold text-center text-gray-800">
+    if (checkingAuth) {
+        return (
+            <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
+                <div className="w-8 h-8 border-4 border-blue-600 border-t-transparent rounded-full animate-spin"></div>
+            </div>
+        );
+    }
+
+    return(
+        <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950">
+  <div className="bg-white dark:bg-gray-800 shadow-lg rounded-2xl p-8 w-full max-w-md space-y-6 border border-gray-100 dark:border-gray-700">
+
+    <h2 className="text-2xl font-semibold text-center text-gray-800 dark:text-white">
       Login
     </h2>
 

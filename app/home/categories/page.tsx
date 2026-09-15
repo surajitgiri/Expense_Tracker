@@ -47,6 +47,16 @@ export default function CategoriesPage() {
     fetchCategories()
   }, [])
 
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && showModal) {
+        setShowModal(false)
+      }
+    }
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [showModal])
+
   const openAdd = () => {
     setEditTarget(null)
     setForm({ name: "", color: PRESET_COLORS[0], icon: "📦" })
@@ -110,21 +120,25 @@ export default function CategoriesPage() {
   }
 
   return (
-    <div className="mx-auto w-full max-w-3xl px-4 py-4 sm:px-6 sm:py-6">
+    <div className="space-y-5 max-w-4xl mx-auto">
       {/* Header */}
-      <div className="mb-6 flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <h1 className="text-xl font-semibold text-gray-800 sm:text-2xl">Categories</h1>
+      <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 mb-5">
+        <div>
+          <h1 className="text-xl sm:text-2xl font-bold text-gray-900 dark:text-white tracking-tight">Categories</h1>
+          <p className="text-xs sm:text-sm text-gray-500 dark:text-gray-400 mt-0.5">Organize and personalize your transaction categories</p>
+        </div>
 
         <button
           onClick={openAdd}
-          className=" rounded-lg bg-indigo-600 px-4 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 "
+          className="self-start sm:self-auto flex items-center justify-center gap-1.5 rounded-lg bg-indigo-600 px-3.5 py-2 text-xs sm:text-sm font-medium text-white transition hover:bg-indigo-700 shadow-sm cursor-pointer"
         >
-          + Add Category
+          <span className="font-bold text-base leading-none">+</span>
+          <span>Add Category</span>
         </button>
       </div>
 
       {error && (
-        <p className="mb-4 rounded-lg border border-red-100 bg-red-50 px-4 py-2 text-sm text-red-500">
+        <p className="mb-4 rounded-lg border border-red-100 dark:border-red-800 bg-red-50 dark:bg-red-950/30 px-4 py-2 text-sm text-red-500">
           {error}
         </p>
       )}
@@ -141,7 +155,7 @@ export default function CategoriesPage() {
           {categories.map((cat) => (
             <div
               key={cat.id}
-              className="flex items-start gap-3 rounded-xl border border-gray-100 bg-white p-4 shadow-sm"
+              className="flex items-start gap-3 rounded-xl border border-gray-100 dark:border-gray-700 bg-white dark:bg-gray-800 p-3.5 sm:p-4 shadow-xs hover:border-gray-200 dark:hover:border-gray-600 transition"
             >
               <div
                 className="flex h-10 w-10 flex-shrink-0 items-center justify-center rounded-full text-lg"
@@ -151,35 +165,35 @@ export default function CategoriesPage() {
               </div>
 
               <div className="min-w-0 flex-1">
-                <p className="truncate text-sm font-medium text-gray-700">{cat.name}</p>
-                <div className="mt-1 flex items-center gap-1">
+                <p className="truncate text-sm font-semibold text-gray-800 dark:text-gray-100">{cat.name}</p>
+                <div className="mt-1 flex items-center gap-1.5">
                   <span
-                    className="inline-block h-2 w-2 rounded-full"
+                    className="inline-block h-2 w-2 rounded-full shrink-0"
                     style={{ backgroundColor: cat.color }}
                   />
-                  <span className="truncate text-xs text-gray-400">{cat.color}</span>
+                  <span className="truncate text-xs text-gray-400 dark:text-gray-500 font-mono">{cat.color}</span>
                 </div>
               </div>
 
-              <div className="flex flex-col items-end gap-1 self-start">
+              <div className="flex flex-col items-end gap-1 shrink-0">
                 <button
                   onClick={() => openEdit(cat)}
-                  className="text-xs text-indigo-500 hover:underline"
+                  className="text-xs text-indigo-600 dark:text-indigo-400 hover:underline font-medium cursor-pointer"
                 >
                   Edit
                 </button>
 
                 {deleteId === cat.id ? (
-                  <div className="flex flex-wrap justify-end gap-2">
+                  <div className="flex flex-wrap justify-end gap-1.5">
                     <button
                       onClick={() => handleDelete(cat.id)}
-                      className="text-xs text-red-500 hover:underline"
+                      className="text-xs text-red-500 hover:underline cursor-pointer"
                     >
                       Confirm
                     </button>
                     <button
                       onClick={() => setDeleteId(null)}
-                      className="text-xs text-gray-400 hover:underline"
+                      className="text-xs text-gray-400 hover:underline cursor-pointer"
                     >
                       Cancel
                     </button>
@@ -187,7 +201,7 @@ export default function CategoriesPage() {
                 ) : (
                   <button
                     onClick={() => setDeleteId(cat.id)}
-                    className="text-xs text-gray-400 transition hover:text-red-500"
+                    className="text-xs text-gray-400 transition hover:text-red-500 cursor-pointer"
                   >
                     Delete
                   </button>
@@ -200,121 +214,152 @@ export default function CategoriesPage() {
 
       {/* Modal */}
       {showModal && (
-        <div className="fixed inset-0 z-50 overflow-y-auto bg-black/40 p-4">
-          <div className="flex min-h-full items-center justify-center">
-            <div className="w-full max-w-md rounded-2xl bg-white p-4 shadow-xl sm:p-6">
-              <h2 className="mb-4 text-base font-semibold text-gray-800 sm:text-lg">
-                {editTarget ? "Edit Category" : "Add Category"}
-              </h2>
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-black/60 backdrop-blur-sm animate-in fade-in duration-150 overflow-y-auto"
+          onClick={(e) => {
+            if (e.target === e.currentTarget) {
+              setShowModal(false)
+            }
+          }}
+        >
+          <div className="bg-white dark:bg-gray-800 rounded-2xl w-full max-w-md shadow-2xl border border-gray-100 dark:border-gray-700/80 overflow-hidden transform transition-all my-auto max-h-[92dvh] flex flex-col">
+            {/* Header */}
+            <div className="px-4 sm:px-6 py-3.5 sm:py-4 border-b border-gray-100 dark:border-gray-700/60 flex items-center justify-between bg-gray-50/50 dark:bg-gray-800/50 shrink-0">
+              <div className="flex items-center gap-2 sm:gap-2.5">
+                <span className="text-xl">🏷️</span>
+                <div>
+                  <h2 className="text-sm sm:text-base font-bold text-gray-900 dark:text-white">
+                    {editTarget ? "Edit Category" : "Add Category"}
+                  </h2>
+                  <p className="text-[11px] sm:text-xs text-gray-400 dark:text-gray-500">
+                    Customize your expense categories
+                  </p>
+                </div>
+              </div>
+              <div className="flex items-center gap-2">
+                <kbd className="hidden sm:inline-block text-[10px] font-semibold px-2 py-0.5 rounded bg-gray-200 dark:bg-gray-700 text-gray-600 dark:text-gray-300">
+                  ESC to close
+                </kbd>
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-lg p-1.5 sm:p-1 rounded-lg transition cursor-pointer"
+                  title="Close (Esc)"
+                >
+                  ✕
+                </button>
+              </div>
+            </div>
 
+            {/* Form */}
+            <form onSubmit={handleSubmit} className="p-4 sm:p-6 space-y-3.5 sm:space-y-4 overflow-y-auto flex-1">
               {formError && (
-                <p className="mb-3 rounded-lg border border-red-100 bg-red-50 px-4 py-2 text-sm text-red-500">
+                <div className="p-3 text-xs text-red-600 dark:text-red-400 bg-red-50 dark:bg-red-950/40 border border-red-200 dark:border-red-900/60 rounded-xl">
                   {formError}
-                </p>
+                </div>
               )}
 
-              <form onSubmit={handleSubmit} className="flex flex-col gap-5 text-black">
-                {/* Name */}
-                <div className="flex flex-col gap-1">
-                  <label className="text-sm font-medium text-gray-600">Name</label>
-                  <input
-                    type="text"
-                    value={form.name}
-                    onChange={(e) => setForm({ ...form, name: e.target.value })}
-                    className="rounded-lg border border-gray-300 px-4 py-2.5 text-sm outline-none focus:ring-2 focus:ring-indigo-400"
-                    placeholder="e.g. Food, Rent, Travel"
-                    required
-                  />
+              {/* Name */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                  Name *
+                </label>
+                <input
+                  type="text"
+                  value={form.name}
+                  onChange={(e) => setForm({ ...form, name: e.target.value })}
+                  className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-indigo-500"
+                  placeholder="e.g. Food, Rent, Travel"
+                  required
+                />
+              </div>
+
+              {/* Color */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Color
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {PRESET_COLORS.map((c) => (
+                    <button
+                      key={c}
+                      type="button"
+                      onClick={() => setForm({ ...form, color: c })}
+                      className="h-8 w-8 rounded-full border-2 transition mx-auto hover:scale-110"
+                      style={{
+                        backgroundColor: c,
+                        borderColor: form.color === c ? "#6366f1" : "transparent",
+                        outline: form.color === c ? "2px solid #6366f1" : "none",
+                        outlineOffset: "2px",
+                      }}
+                    />
+                  ))}
                 </div>
+              </div>
 
-                {/* Color */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-600">Color</label>
+              {/* Icon */}
+              <div>
+                <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1.5">
+                  Icon
+                </label>
+                <div className="grid grid-cols-6 gap-2">
+                  {PRESET_ICONS.map((icon) => (
+                    <button
+                      key={icon}
+                      type="button"
+                      onClick={() => setForm({ ...form, icon })}
+                      className={`flex h-9 w-9 items-center justify-center rounded-xl border text-base transition mx-auto cursor-pointer ${
+                        form.icon === icon
+                          ? "border-indigo-500 bg-indigo-50 dark:bg-indigo-950/50 shadow-sm"
+                          : "border-gray-200 dark:border-gray-700 hover:border-indigo-300"
+                      }`}
+                    >
+                      {icon}
+                    </button>
+                  ))}
+                </div>
+              </div>
 
-                  <div className="grid grid-cols-4 gap-2 xs:grid-cols-5 sm:grid-cols-6">
-                    {PRESET_COLORS.map((c) => (
-                      <button
-                        key={c}
-                        type="button"
-                        onClick={() => setForm({ ...form, color: c })}
-                        className="h-9 w-9 rounded-full border-2 transition"
-                        style={{
-                          backgroundColor: c,
-                          borderColor: form.color === c ? "#6366f1" : "transparent",
-                          outline: form.color === c ? "2px solid #6366f1" : "none",
-                          outlineOffset: "2px",
-                        }}
-                      />
-                    ))}
+              {/* Preview */}
+              <div className="flex items-center gap-3 rounded-xl bg-gray-50 dark:bg-gray-900/60 p-3 border border-gray-100 dark:border-gray-800">
+                <div
+                  className="flex h-10 w-10 items-center justify-center rounded-xl text-lg shadow-sm"
+                  style={{ backgroundColor: form.color + "22" }}
+                >
+                  {form.icon}
+                </div>
+                <div className="min-w-0 flex-1">
+                  <p className="truncate text-xs font-semibold text-gray-800 dark:text-gray-200">
+                    {form.name || "Category Preview"}
+                  </p>
+                  <div className="mt-0.5 flex items-center gap-1.5">
+                    <span
+                      className="h-2 w-2 rounded-full"
+                      style={{ backgroundColor: form.color }}
+                    />
+                    <span className="text-[10px] text-gray-400">{form.color}</span>
                   </div>
                 </div>
+              </div>
 
-                {/* Icon */}
-                <div className="flex flex-col gap-2">
-                  <label className="text-sm font-medium text-gray-600">Icon</label>
-
-                  <div className="grid grid-cols-4 gap-2 xs:grid-cols-5 sm:grid-cols-6">
-                    {PRESET_ICONS.map((icon) => (
-                      <button
-                        key={icon}
-                        type="button"
-                        onClick={() => setForm({ ...form, icon })}
-                        className={`flex h-10 w-10 items-center justify-center rounded-lg border text-lg transition ${
-                          form.icon === icon
-                            ? "border-indigo-400 bg-indigo-50"
-                            : "border-gray-200 hover:border-indigo-300"
-                        }`}
-                      >
-                        {icon}
-                      </button>
-                    ))}
-                  </div>
-                </div>
-
-                {/* Preview */}
-                <div className="flex items-center gap-3 rounded-xl bg-gray-50 p-4">
-                  <div
-                    className="flex h-12 w-12 items-center justify-center rounded-full text-xl"
-                    style={{ backgroundColor: form.color + "22" }}
-                  >
-                    {form.icon}
-                  </div>
-
-                  <div className="min-w-0 flex flex-col">
-                    <p className="truncate text-sm font-medium text-gray-700">
-                      {form.name || "Category name"}
-                    </p>
-
-                    <div className="mt-1 flex items-center gap-2">
-                      <span
-                        className="h-2.5 w-2.5 rounded-full"
-                        style={{ backgroundColor: form.color }}
-                      />
-                      <span className="text-xs text-gray-400">{form.color}</span>
-                    </div>
-                  </div>
-                </div>
-
-                {/* Buttons */}
-                <div className="flex flex-col gap-3 sm:flex-row">
-                  <button
-                    type="button"
-                    onClick={() => setShowModal(false)}
-                    className="flex-1 rounded-lg border border-gray-300 py-2.5 text-sm text-gray-600 transition hover:bg-gray-100"
-                  >
-                    Cancel
-                  </button>
-
-                  <button
-                    type="submit"
-                    disabled={submitting}
-                    className="flex-1 rounded-lg bg-indigo-600 py-2.5 text-sm font-medium text-white transition hover:bg-indigo-700 disabled:opacity-60"
-                  >
-                    {submitting ? "Saving..." : editTarget ? "Update" : "Create"}
-                  </button>
-                </div>
-              </form>
-            </div>
+              {/* Buttons */}
+              <div className="flex items-center justify-end gap-2 sm:gap-3 pt-3 sm:pt-4 border-t border-gray-100 dark:border-gray-700/40">
+                <button
+                  type="button"
+                  onClick={() => setShowModal(false)}
+                  className="flex-1 sm:flex-none px-4 py-2.5 text-xs font-medium text-gray-600 dark:text-gray-300 hover:text-gray-800 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-700/60 rounded-xl transition cursor-pointer text-center"
+                >
+                  Cancel
+                </button>
+                <button
+                  type="submit"
+                  disabled={submitting}
+                  className="flex-1 sm:flex-none px-5 py-2.5 text-xs font-semibold bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl shadow transition disabled:opacity-60 cursor-pointer text-center"
+                >
+                  {submitting ? "Saving..." : editTarget ? "Update Category" : "Create Category"}
+                </button>
+              </div>
+            </form>
           </div>
         </div>
       )}

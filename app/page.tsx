@@ -1,19 +1,45 @@
 "use client";
 
 import Link from "next/link";
+import { useEffect, useState } from "react";
+import { useRouter } from "next/navigation";
 
 export default function Home() {
+  const router = useRouter();
+  const [checkingAuth, setCheckingAuth] = useState(true);
+
+  useEffect(() => {
+    const token = localStorage.getItem("token");
+    const hasCookie = document.cookie.includes("token=");
+    if (token || hasCookie) {
+      if (token && !hasCookie) {
+        document.cookie = `token=${token}; path=/; max-age=2592000; SameSite=Lax`;
+      }
+      router.replace("/home/dashboard");
+    } else {
+      setCheckingAuth(false);
+    }
+  }, [router]);
+
+  if (checkingAuth) {
+    return (
+      <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center">
+        <div className="w-8 h-8 border-4 border-indigo-600 border-t-transparent rounded-full animate-spin"></div>
+      </div>
+    );
+  }
+
   return (
-    <div className="min-h-screen bg-gray-100 flex items-center justify-center px-6">
+    <div className="min-h-screen bg-gray-100 dark:bg-gray-950 flex items-center justify-center px-6">
 
       <div className="max-w-4xl w-full text-center">
 
         {/* Heading */}
-        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 mb-4">
+        <h1 className="text-4xl sm:text-5xl font-bold text-gray-900 dark:text-white mb-4">
           💰 Expense Tracker
         </h1>
 
-        <p className="text-gray-600 text-lg mb-8">
+        <p className="text-gray-600 dark:text-gray-400 text-lg mb-8">
           Track your income, manage expenses, and stay in control of your finances — all in one place.
         </p>
 
@@ -28,7 +54,7 @@ export default function Home() {
 
           <Link
             href="/auth/login"
-            className="border border-gray-400 text-black font-semibold bg-gray-200 hover:bg-gray-300 px-6 py-3 rounded-lg text-sm font-medium transition"
+            className="border border-gray-400 dark:border-gray-600 text-gray-800 dark:text-gray-200 font-semibold bg-gray-200 dark:bg-gray-800 hover:bg-gray-300 dark:hover:bg-gray-700 px-6 py-3 rounded-lg text-sm font-medium transition"
           >
             Login
           </Link>
