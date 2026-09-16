@@ -7,7 +7,7 @@ export default function LogoutButton() {
 
   const handleLogout = () => {
     localStorage.removeItem("token");
-    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC;";
+    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; max-age=0; SameSite=Lax;";
     router.push("/auth/login");
   };
 

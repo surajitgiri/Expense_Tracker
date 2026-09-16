@@ -13,16 +13,41 @@ export default function LoginPage() {
     const [checkingAuth, setCheckingAuth] = useState(true);
 
     useEffect(() => {
-        const token = localStorage.getItem("token");
-        const hasCookie = document.cookie.includes("token=");
-        if (token || hasCookie) {
-            if (token && !hasCookie) {
-                document.cookie = `token=${token}; path=/; max-age=2592000; SameSite=Lax`;
-            }
-            router.replace("/home/dashboard");
-        } else {
+        const getCookieToken = () => {
+            const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+            const val = match ? decodeURIComponent(match[1]).trim() : null;
+            return val && val !== "null" && val !== "undefined" && val !== "" ? val : null;
+        };
+
+        const localToken = localStorage.getItem("token");
+        const validLocal = localToken && localToken !== "null" && localToken !== "undefined" && localToken.trim() !== "" ? localToken.trim() : null;
+        const token = getCookieToken() || validLocal;
+
+        if (!token) {
+            localStorage.removeItem("token");
+            document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax";
             setCheckingAuth(false);
+            return;
         }
+
+        fetch("/api/user", {
+            headers: { Authorization: `Bearer ${token}` },
+        })
+            .then((res) => {
+                if (res.ok) {
+                    if (!getCookieToken()) {
+                        document.cookie = `token=${token}; path=/; max-age=2592000; SameSite=Lax`;
+                    }
+                    router.replace("/home/dashboard");
+                } else {
+                    localStorage.removeItem("token");
+                    document.cookie = "token=; path=/; expires=Thu, 01 Jan 1970 00:00:00 UTC; SameSite=Lax";
+                    setCheckingAuth(false);
+                }
+            })
+            .catch(() => {
+                setCheckingAuth(false);
+            });
     }, [router]);
 
     const handleLogin = async (e: React.FormEvent) => {
