@@ -10,9 +10,10 @@ exports.createTransactionSchema = zod_1.z.object({
         errorMap: () => ({ message: "Type must be either 'income' or 'expense'" }),
     }),
     description: zod_1.z
-        .string({ required_error: "Description is required" })
+        .string()
         .trim()
-        .min(1, "Description cannot be empty"),
+        .optional()
+        .default(""),
     date: zod_1.z
         .string({ required_error: "Date is required" })
         .refine((val) => !isNaN(Date.parse(val)), {
@@ -37,7 +38,6 @@ exports.updateTransactionSchema = zod_1.z.object({
     description: zod_1.z
         .string()
         .trim()
-        .min(1, "Description cannot be empty")
         .optional(),
     date: zod_1.z
         .string()

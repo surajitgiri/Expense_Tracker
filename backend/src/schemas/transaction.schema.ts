@@ -17,10 +17,17 @@ export const createTransactionSchema = z.object({
     .refine((val) => !isNaN(Date.parse(val)), {
       message: "Date must be a valid ISO date string",
     }),
-  categoryId: z
-    .string({ required_error: "Category ID is required" })
-    .min(1, "Category ID cannot be empty"),
+  categoryId: z.string().optional().nullable(),
   accountId: z.string().optional().nullable(),
+}).superRefine((data, ctx) => {
+  // Category is required only for expense transactions
+  if (data.type === "expense" && !data.categoryId) {
+    ctx.addIssue({
+      code: z.ZodIssueCode.custom,
+      message: "Category is required for expense transactions",
+      path: ["categoryId"],
+    })
+  }
 })
 
 export const updateTransactionSchema = z.object({

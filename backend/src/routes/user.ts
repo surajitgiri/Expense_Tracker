@@ -21,6 +21,8 @@ router.get("/", async (req: AuthenticatedRequest, res: Response): Promise<void> 
         name: true,
         email: true,
         theme: true,
+        avatar: true,
+        googleId: true,
         _count: {
           select: {
             transaction: true,
@@ -64,17 +66,19 @@ router.patch("/", async (req: AuthenticatedRequest, res: Response): Promise<void
     }
 
     if (newPassword) {
-      if (!currentPassword) {
-        res.status(400).json({
-          error: "Current password is required to set a new password",
-        })
-        return
-      }
+      if (user.password) {
+        if (!currentPassword) {
+          res.status(400).json({
+            error: "Current password is required to set a new password",
+          })
+          return
+        }
 
-      const isValid = await bcrypt.compare(currentPassword, user.password)
-      if (!isValid) {
-        res.status(400).json({ error: "Current password is incorrect" })
-        return
+        const isValid = await bcrypt.compare(currentPassword, user.password)
+        if (!isValid) {
+          res.status(400).json({ error: "Current password is incorrect" })
+          return
+        }
       }
 
       if (newPassword.length < 6) {

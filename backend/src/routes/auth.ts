@@ -1,12 +1,15 @@
 import { Router, Request, Response } from "express"
 import bcrypt from "bcrypt"
 import jwt from "jsonwebtoken"
+import { OAuth2Client } from "google-auth-library"
 import { prisma } from "../lib/prisma"
 import { generateToken, hashToken } from "../lib/token"
 import { sendVerificationEmail, sendForgotPassWordEmail } from "../lib/mail"
 import { authLimiter } from "../middleware/rateLimiter"
+import { seedDefaultCategories } from "../lib/seedCategories"
 
 const router = Router()
+const googleClient = new OAuth2Client(process.env.GOOGLE_CLIENT_ID)
 
 const getJwtSecret = () =>
   process.env.JWT_SECRET ||
@@ -36,6 +39,13 @@ router.post("/login", authLimiter, async (req: Request, res: Response): Promise<
       res
         .status(403)
         .json({ error: "please verify your email before logging in" })
+      return
+    }
+
+    if (!user.password) {
+      res.status(400).json({
+        error: "This account was created with Google. Please sign in with Google.",
+      })
       return
     }
 
@@ -70,6 +80,121 @@ router.post("/login", authLimiter, async (req: Request, res: Response): Promise<
   } catch (error) {
     console.error("POST /auth/login error:", error)
     res.status(500).json({ error: "Something went wrong" })
+  }
+})
+
+// POST /api/auth/google
+router.post("/google", authLimiter, async (req: Request, res: Response): Promise<void> => {
+  try {
+    const { credential } = req.body
+
+    if (!credential) {
+      res.status(400).json({ error: "Google credential is required" })
+      return
+    }
+
+    let payload: any = null
+    const googleClientId = process.env.GOOGLE_CLIENT_ID
+
+    // 1. Verify token with google-auth-library if client ID is configured
+    if (googleClientId) {
+      try {
+        const ticket = await googleClient.verifyIdToken({
+          idToken: credential,
+          audience: googleClientId,
+        })
+        payload = ticket.getPayload()
+      } catch (err) {
+        console.warn("verifyIdToken with GOOGLE_CLIENT_ID failed, trying fallback:", err)
+      }
+    }
+
+    // 2. Fallback to Google's tokeninfo endpoint if needed
+    if (!payload) {
+      try {
+        const tokenInfoRes = await fetch(
+          `https://oauth2.googleapis.com/tokeninfo?id_token=${encodeURIComponent(credential)}`
+        )
+        if (tokenInfoRes.ok) {
+          payload = await tokenInfoRes.json()
+        }
+      } catch (fetchErr) {
+        console.error("Failed to verify Google token via tokeninfo:", fetchErr)
+      }
+    }
+
+    if (!payload || !payload.email) {
+      res.status(400).json({ error: "Invalid or expired Google token" })
+      return
+    }
+
+    const email: string = payload.email.toLowerCase()
+    const name: string = payload.name || email.split("@")[0]
+    const googleId: string = payload.sub
+    const avatar: string | undefined = payload.picture
+
+    // Check if user already exists
+    let user = await prisma.user.findFirst({
+      where: {
+        OR: [
+          { email },
+          { googleId },
+        ],
+      },
+    })
+
+    if (user) {
+      // Existing user: link googleId and mark verified if needed
+      user = await prisma.user.update({
+        where: { id: user.id },
+        data: {
+          googleId: user.googleId || googleId,
+          avatar: user.avatar || avatar,
+          isVerified: true,
+          name: user.name || name,
+        },
+      })
+    } else {
+      // New user registration via Google — create user + seed default categories
+      user = await prisma.user.create({
+        data: {
+          email,
+          name,
+          googleId,
+          avatar,
+          isVerified: true,
+        },
+      })
+      // Seed default categories for new Google users immediately
+      await seedDefaultCategories(user.id)
+    }
+
+    const token = jwt.sign(
+      { id: user.id, email: user.email },
+      getJwtSecret(),
+      { expiresIn: "30d" }
+    )
+
+    res.cookie("token", token, {
+      maxAge: 30 * 24 * 60 * 60 * 1000, // 30 days
+      httpOnly: false,
+      sameSite: "lax",
+      path: "/",
+    })
+
+    res.json({
+      message: "Google authentication successful",
+      token,
+      user: {
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        avatar: user.avatar,
+      },
+    })
+  } catch (error) {
+    console.error("POST /auth/google error:", error)
+    res.status(500).json({ error: "Google authentication failed" })
   }
 })
 
@@ -166,6 +291,9 @@ router.get("/verify-email", async (req: Request, res: Response): Promise<void> =
         verifyTokenExpiry: null,
       },
     })
+
+    // Seed default categories for newly verified email users
+    await seedDefaultCategories(user.id)
 
     res.json({ message: "Email verified successfully" })
   } catch (error) {

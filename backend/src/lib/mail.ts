@@ -1,11 +1,28 @@
 import nodemailer from "nodemailer"
 
+const cleanEmailPass = (process.env.EMAIL_PASS || "")
+  .replace(/^["']|["']$/g, "")
+  .replace(/\s+/g, "")
+
 const transporter = nodemailer.createTransport({
-  service: "gmail",
+  host: "smtp.gmail.com",
+  port: 465,
+  secure: true,
   auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
+    user: process.env.EMAIL_USER?.trim(),
+    pass: cleanEmailPass,
   },
+  // Force IPv4 to prevent IPv6 network unreachable / timeout issues on AWS EC2
+  family: 4,
+} as nodemailer.TransportOptions)
+
+// Verify SMTP connection on startup so errors are visible immediately in server logs
+transporter.verify((error) => {
+  if (error) {
+    console.error("❌ SMTP connection verification failed:", error.message)
+  } else {
+    console.log("✅ SMTP Server is ready to send emails")
+  }
 })
 
 const getFrontendUrl = () =>

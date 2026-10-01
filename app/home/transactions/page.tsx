@@ -4,6 +4,7 @@ import React, { useEffect, useState, useRef } from "react"
 import jsPDF from "jspdf"
 import autoTable from "jspdf-autotable"
 import { useCurrency } from "@/context/CurrencyContext"
+import { useToast } from "@/context/ToastContext"
 
 // Inside TransactionsPage():
 
@@ -29,6 +30,15 @@ export default function TransactionPage() {
 
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [loading, setLoading] = useState(true)
+  const [page, setPage] = useState(1)
+  const [limit, setLimit] = useState(10)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalCount, setTotalCount] = useState(0)
+  const [overallStats, setOverallStats] = useState<{ totalIncome: number; totalExpense: number }>({
+    totalIncome: 0,
+    totalExpense: 0,
+  })
+  const [search, setSearch] = useState("")
   const [error, setError] = useState("")
   const [showModal, setShowModal] = useState(false)
   const [filterType, setFilterType] = useState("")
@@ -40,6 +50,7 @@ export default function TransactionPage() {
   const [formError, setFormError] = useState("")
 
   const fileInputRef = useRef<HTMLInputElement>(null)
+  const isFetchingRef = useRef(false)
   const [accounts, setAccounts] = useState<any[]>([])
 
   const [form, setForm] = useState({
@@ -52,26 +63,70 @@ export default function TransactionPage() {
   })
 
   const { format, currency } = useCurrency();
+  const { toast } = useToast();
 
   const pdfFormat = (amount: number) => {
     return `${currency.code} ${amount.toFixed(2)}`
   }
 
-  const fetchTransactions = async () => {
+  const fetchTransactions = async (pageToFetch = page, limitToFetch = limit) => {
+    if (isFetchingRef.current) return
+    isFetchingRef.current = true
     setLoading(true)
+    setError("")
+
     try {
       const params = new URLSearchParams()
       if (filterType) params.append("type", filterType)
       if (filterMonth) params.append("month", filterMonth)
+      if (search.trim()) params.append("search", search.trim())
+      params.append("page", pageToFetch.toString())
+      params.append("limit", limitToFetch.toString())
+
       const res = await fetch(`/api/transactions?${params.toString()}`)
       const data = await res.json()
-      if (res.ok) setTransactions(data)
-      else setError(data.error)
+
+      if (res.ok) {
+        const items: Transaction[] = data.transactions || (Array.isArray(data) ? data : [])
+        setTransactions(items)
+        setPage(pageToFetch)
+        const calculatedTotal = data.total ?? items.length
+        setTotalCount(calculatedTotal)
+        setTotalPages(data.totalPages || Math.max(1, Math.ceil(calculatedTotal / limitToFetch)))
+        if (data.stats) {
+          setOverallStats(data.stats)
+        }
+      } else {
+        setError(data.error || "Failed to load transactions")
+      }
     } catch {
       setError("Failed to load transactions")
     } finally {
+      isFetchingRef.current = false
       setLoading(false)
     }
+  }
+
+  const handlePageChange = (newPage: number) => {
+    if (newPage < 1 || newPage > totalPages || newPage === page || loading) return
+    fetchTransactions(newPage, limit)
+    window.scrollTo({ top: 0, behavior: "smooth" })
+  }
+
+  const getPageNumbers = () => {
+    const pages: (number | string)[] = []
+    if (totalPages <= 5) {
+      for (let i = 1; i <= totalPages; i++) pages.push(i)
+    } else {
+      if (page <= 3) {
+        pages.push(1, 2, 3, 4, "...", totalPages)
+      } else if (page >= totalPages - 2) {
+        pages.push(1, "...", totalPages - 3, totalPages - 2, totalPages - 1, totalPages)
+      } else {
+        pages.push(1, "...", page - 1, page, page + 1, "...", totalPages)
+      }
+    }
+    return pages
   }
 
   const fetchCategories = async () => {
@@ -97,13 +152,24 @@ export default function TransactionPage() {
   }
 
   useEffect(() => {
-    fetchTransactions()
     fetchCategories()
     fetchAccounts()
+  }, [])
 
-    window.addEventListener("transactionAdded", fetchTransactions)
-    return () => window.removeEventListener("transactionAdded", fetchTransactions)
-  }, [filterMonth, filterType])
+  // Refetch page 1 whenever filters, search query, or limit changes
+  useEffect(() => {
+    const timer = setTimeout(() => {
+      fetchTransactions(1, limit)
+    }, 200)
+    return () => clearTimeout(timer)
+  }, [filterMonth, filterType, search, limit])
+
+  // Handle external transaction added events (e.g. from QuickAdd)
+  useEffect(() => {
+    const handleTxAdded = () => fetchTransactions(1, limit)
+    window.addEventListener("transactionAdded", handleTxAdded)
+    return () => window.removeEventListener("transactionAdded", handleTxAdded)
+  }, [filterMonth, filterType, search, limit])
 
   // ESC key to close modal
   useEffect(() => {
@@ -118,12 +184,29 @@ export default function TransactionPage() {
   }, [showModal])
 
 
+  const getAllTransactionsForExport = async (): Promise<Transaction[]> => {
+    try {
+      const params = new URLSearchParams()
+      if (filterType) params.append("type", filterType)
+      if (filterMonth) params.append("month", filterMonth)
+      if (search.trim()) params.append("search", search.trim())
+      const res = await fetch(`/api/transactions?${params.toString()}`)
+      const data = await res.json()
+      if (Array.isArray(data)) return data
+      if (data.transactions) return data.transactions
+    } catch {}
+    return transactions
+  }
+
   //  --- 1. EXPORT TO CSV ---
-  const handleExportCSV = () => {
+  const handleExportCSV = async () => {
     if (transactions.length === 0) return;
 
+    const dataToExport = await getAllTransactionsForExport()
+    if (dataToExport.length === 0) return;
+
     const headers = ["Date", "Description", "Category", "Type", "Amount"]
-    const rows = transactions.map((t) => [
+    const rows = dataToExport.map((t) => [
       `"${new Date(t.date).toISOString().split("T")[0]}"`,
       `"${(t.description || "").replace(/"/g, '""')}"`,
       `"${(t.category?.name || "").replace(/"/g, '""')}"`,
@@ -207,8 +290,19 @@ export default function TransactionPage() {
       if (res.ok) {
         if (editId) {
           setTransactions((prev) => prev.map((t) => (t.id === editId ? data : t)))
+          toast({ type: "success", message: "Transaction updated", description: `${data.description || data.type} saved successfully.` })
         } else {
-          setTransactions((prev) => [data, ...prev])
+          setTransactions((prev) => {
+            const filtered = prev.filter((t) => t.id !== data.id)
+            return [data, ...filtered]
+          })
+          setTotalCount((prev) => prev + 1)
+          if (data.type === "income") {
+            setOverallStats((prev) => ({ ...prev, totalIncome: prev.totalIncome + data.amount }))
+          } else {
+            setOverallStats((prev) => ({ ...prev, totalExpense: prev.totalExpense + data.amount }))
+          }
+          toast({ type: "success", message: "Transaction added", description: `${format(data.amount)} ${data.type} recorded.` })
         }
         setShowModal(false)
         setEditId(null)
@@ -218,26 +312,54 @@ export default function TransactionPage() {
         })
       } else {
         setFormError(data.error)
+        toast({ type: "error", message: "Failed to save", description: data.error })
       }
     } catch {
       setFormError("Something went wrong")
+      toast({ type: "error", message: "Something went wrong", description: "Please try again." })
     } finally {
       setSubmitting(false)
     }
   }
 
   const handleDelete = async (id: string) => {
+    const deleted = transactions.find((t) => t.id === id)
+    // Optimistic removal
+    setTransactions((prev) => prev.filter((t) => t.id !== id))
+    setTotalCount((prev) => Math.max(0, prev - 1))
+    if (deleted) {
+      if (deleted.type === "income") {
+        setOverallStats((prev) => ({ ...prev, totalIncome: Math.max(0, prev.totalIncome - deleted.amount) }))
+      } else {
+        setOverallStats((prev) => ({ ...prev, totalExpense: Math.max(0, prev.totalExpense - deleted.amount) }))
+      }
+    }
+    setDeleteId(null)
+
     try {
       const res = await fetch(`/api/transactions?id=${id}`, { method: "DELETE" })
-      if (res.ok) setTransactions((prev) => prev.filter((t) => t.id !== id))
+      if (!res.ok) throw new Error()
+      toast({
+        type: "info",
+        message: "Transaction deleted",
+        description: deleted?.description || "Transaction removed.",
+        undoAction: async () => {
+          // Re-fetch to restore
+          await fetchTransactions(page, limit)
+        },
+      })
     } catch {
-      setError("Failed to delete")
-    } finally {
-      setDeleteId(null)
+      // Rollback on failure
+      await fetchTransactions(page, limit)
+      toast({ type: "error", message: "Delete failed", description: "Could not delete the transaction." })
     }
   }
 
-  const handleDownloadPDF = () => {
+  const handleDownloadPDF = async () => {
+    if (transactions.length === 0) return;
+    const exportData = await getAllTransactionsForExport()
+    if (exportData.length === 0) return;
+
     const doc = new jsPDF()
 
     // Title
@@ -264,7 +386,7 @@ export default function TransactionPage() {
     autoTable(doc, {
       startY: 68,
       head: [["Date", "Description", "Category", "Type", "Amount"]],
-      body: transactions.map((t) => [
+      body: exportData.map((t) => [
         new Date(t.date).toLocaleDateString("en-US", {
           month: "short", day: "numeric", year: "numeric",
         }),
@@ -309,8 +431,12 @@ export default function TransactionPage() {
     doc.save(`transactions-${filterMonth || new Date().toISOString().slice(0, 7)}.pdf`)
   }
 
-  const totalIncome = transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
-  const totalExpense = transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
+  const totalIncome =
+    overallStats.totalIncome ||
+    transactions.filter((t) => t.type === "income").reduce((sum, t) => sum + t.amount, 0)
+  const totalExpense =
+    overallStats.totalExpense ||
+    transactions.filter((t) => t.type === "expense").reduce((sum, t) => sum + t.amount, 0)
 
   return (
     <div className="space-y-4 md:space-y-6 max-w-5xl mx-auto">
@@ -408,12 +534,35 @@ export default function TransactionPage() {
         </div>
       </div>
 
-      {/* Filters */}
+      {/* Filters & Search */}
       <div className="flex items-center gap-2 sm:gap-3 mb-4 flex-wrap">
+        {/* Search Input */}
+        <div className="relative flex-1 min-w-[180px] sm:min-w-[240px]">
+          <input
+            type="text"
+            placeholder="Search description..."
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="w-full border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg pl-8 pr-7 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 placeholder-gray-400 dark:placeholder-gray-500 outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
+          />
+          <svg className="w-4 h-4 text-gray-400 absolute left-2.5 top-2.5 pointer-events-none" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M21 21l-4.35-4.35m1.35-5.65a7 7 0 11-14 0 7 7 0 0114 0z" />
+          </svg>
+          {search && (
+            <button
+              onClick={() => setSearch("")}
+              className="absolute right-2.5 top-2.5 text-gray-400 hover:text-gray-600 dark:hover:text-gray-200 text-xs cursor-pointer"
+              title="Clear search"
+            >
+              ✕
+            </button>
+          )}
+        </div>
+
         <select
           value={filterType}
           onChange={(e) => setFilterType(e.target.value)}
-          className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
         >
           <option value="">All types</option>
           <option value="income">Income</option>
@@ -424,16 +573,22 @@ export default function TransactionPage() {
           type="month"
           value={filterMonth}
           onChange={(e) => setFilterMonth(e.target.value)}
-          className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-500"
+          className="flex-1 sm:flex-none border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 rounded-lg px-3 py-2 text-xs sm:text-sm text-gray-700 dark:text-gray-200 outline-none focus:ring-2 focus:ring-indigo-500 shadow-xs"
         />
 
-        {(filterType || filterMonth) && (
+        {(filterType || filterMonth || search) && (
           <button
-            onClick={() => { setFilterType(""); setFilterMonth("") }}
+            onClick={() => { setFilterType(""); setFilterMonth(""); setSearch("") }}
             className="text-xs sm:text-sm text-indigo-600 dark:text-indigo-400 hover:underline px-1 py-1 font-medium cursor-pointer"
           >
             Clear
           </button>
+        )}
+
+        {totalCount > 0 && (
+          <span className="text-xs text-gray-400 dark:text-gray-500 ml-auto hidden sm:inline">
+            Showing {transactions.length} of {totalCount}
+          </span>
         )}
       </div>
 
@@ -447,7 +602,26 @@ export default function TransactionPage() {
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading...</div>
         ) : transactions.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No transactions found.</div>
+          <div className="py-16 flex flex-col items-center justify-center text-center px-6">
+            <div className="w-14 h-14 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center mb-4">
+              <svg className="w-7 h-7 text-indigo-500 dark:text-indigo-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-800 dark:text-gray-200 mb-1">No transactions yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4 max-w-xs">
+              {filterType || filterMonth || search ? "No transactions match your current filters. Try adjusting them." : "Add your first income or expense to start tracking your finances."}
+            </p>
+            {!filterType && !filterMonth && !search && (
+              <button
+                onClick={() => { setForm({ amount: "", type: "expense", description: "", date: new Date().toISOString().split("T")[0], categoryId: "", accountId: "" }); setShowModal(true) }}
+                className="flex items-center gap-1.5 px-4 py-2 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition shadow-sm cursor-pointer"
+              >
+                <span className="text-base font-bold leading-none">+</span>
+                Add first transaction
+              </button>
+            )}
+          </div>
         ) : (
           <table className="w-full text-sm">
             <thead className="bg-gray-50 dark:bg-gray-700/50 text-gray-500 dark:text-gray-400 text-left">
@@ -520,7 +694,25 @@ export default function TransactionPage() {
         {loading ? (
           <div className="p-8 text-center text-gray-400 text-sm">Loading...</div>
         ) : transactions.length === 0 ? (
-          <div className="p-8 text-center text-gray-400 text-sm">No transactions found.</div>
+          <div className="py-12 flex flex-col items-center justify-center text-center px-6">
+            <div className="w-12 h-12 rounded-2xl bg-indigo-50 dark:bg-indigo-900/30 flex items-center justify-center mb-3">
+              <svg className="w-6 h-6 text-indigo-400" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+            <p className="text-sm font-semibold text-gray-700 dark:text-gray-300 mb-1">No transactions yet</p>
+            <p className="text-xs text-gray-400 dark:text-gray-500 mb-4">
+              {filterType || filterMonth || search ? "No results for your filters." : "Start by adding your first transaction."}
+            </p>
+            {!filterType && !filterMonth && !search && (
+              <button
+                onClick={() => { setForm({ amount: "", type: "expense", description: "", date: new Date().toISOString().split("T")[0], categoryId: "", accountId: "" }); setShowModal(true) }}
+                className="flex items-center gap-1.5 px-3 py-1.5 bg-indigo-600 hover:bg-indigo-700 text-white text-xs font-semibold rounded-lg transition cursor-pointer"
+              >
+                <span className="font-bold">+</span> Add transaction
+              </button>
+            )}
+          </div>
         ) : (
           transactions.map((t) => (
             <div key={t.id} className="bg-white dark:bg-gray-800 rounded-xl border border-gray-100 dark:border-gray-700 shadow-xs p-3.5 sm:p-4 transition">
@@ -579,6 +771,96 @@ export default function TransactionPage() {
           ))
         )}
       </div>
+
+      {/* ── PAGINATION BAR ── */}
+      {totalCount > 0 && (
+        <div className="flex flex-col sm:flex-row items-center justify-between gap-3 pt-3 pb-6 px-1 border-t border-gray-100 dark:border-gray-700/60">
+          
+          {/* Showing info & page size */}
+          <div className="flex items-center gap-3 text-xs text-gray-500 dark:text-gray-400">
+            <span>
+              Showing <span className="font-semibold text-gray-800 dark:text-gray-200">{(page - 1) * limit + 1}</span>–<span className="font-semibold text-gray-800 dark:text-gray-200">{Math.min(page * limit, totalCount)}</span> of <span className="font-semibold text-gray-800 dark:text-gray-200">{totalCount}</span>
+            </span>
+
+            <div className="flex items-center gap-1.5 pl-3 border-l border-gray-200 dark:border-gray-700">
+              <label htmlFor="limit-select" className="text-gray-400">Rows:</label>
+              <select
+                id="limit-select"
+                value={limit}
+                onChange={(e) => {
+                  const newLimit = parseInt(e.target.value, 10)
+                  setLimit(newLimit)
+                  setPage(1)
+                  fetchTransactions(1, newLimit)
+                }}
+                className="bg-white dark:bg-gray-800 border border-gray-200 dark:border-gray-700 rounded-lg px-2 py-1 text-xs text-gray-700 dark:text-gray-200 outline-none focus:ring-1 focus:ring-indigo-500 cursor-pointer"
+              >
+                <option value={10}>10</option>
+                <option value={15}>15</option>
+                <option value={25}>25</option>
+                <option value={50}>50</option>
+              </select>
+            </div>
+          </div>
+
+          {/* Navigation: Prev, Page numbers, Next */}
+          <div className="flex items-center gap-1 sm:gap-1.5">
+            {/* Previous Page Arrow Button */}
+            <button
+              type="button"
+              onClick={() => handlePageChange(page - 1)}
+              disabled={page <= 1 || loading}
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
+              aria-label="Previous page"
+              title="Previous page"
+            >
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M15 19l-7-7 7-7" />
+              </svg>
+              <span className="hidden sm:inline">Prev</span>
+            </button>
+
+            {/* Page Number Buttons */}
+            <div className="flex items-center gap-1">
+              {getPageNumbers().map((p, idx) => (
+                p === "..." ? (
+                  <span key={`dots-${idx}`} className="px-1 text-xs text-gray-400">...</span>
+                ) : (
+                  <button
+                    key={`page-${p}`}
+                    type="button"
+                    onClick={() => handlePageChange(p as number)}
+                    disabled={loading}
+                    className={`min-w-8 h-8 px-2 rounded-lg text-xs font-semibold transition cursor-pointer ${
+                      page === p
+                        ? "bg-indigo-600 text-white shadow-xs"
+                        : "text-gray-700 dark:text-gray-300 hover:bg-gray-100 dark:hover:bg-gray-700 border border-transparent hover:border-gray-200 dark:hover:border-gray-600"
+                    }`}
+                  >
+                    {p}
+                  </button>
+                )
+              ))}
+            </div>
+
+            {/* Next Page Arrow Button */}
+            <button
+              type="button"
+              onClick={() => handlePageChange(page + 1)}
+              disabled={page >= totalPages || loading}
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-lg border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-xs font-medium text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition shadow-xs cursor-pointer"
+              aria-label="Next page"
+              title="Next page"
+            >
+              <span className="hidden sm:inline">Next</span>
+              <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24" strokeWidth={2.5}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 5l7 7-7 7" />
+              </svg>
+            </button>
+          </div>
+
+        </div>
+      )}
 
       {/* Modal */}
       {showModal && (
@@ -648,7 +930,7 @@ export default function TransactionPage() {
                 </button>
                 <button
                   type="button"
-                  onClick={() => setForm({ ...form, type: "income" })}
+                  onClick={() => setForm({ ...form, type: "income", categoryId: "" })}
                   className={`flex-1 py-2 text-xs font-semibold rounded-lg transition-all cursor-pointer ${
                     form.type === "income"
                       ? "bg-green-600 text-white shadow-sm"
@@ -709,30 +991,33 @@ export default function TransactionPage() {
                 />
               </div>
 
-              {/* Category and Account selection */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Category *
-                  </label>
-                  <select
-                    value={form.categoryId}
-                    onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
-                    required
-                    className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
-                  >
-                    <option value="">Select category</option>
-                    {categories.map((c) => (
-                      <option key={c.id} value={c.id}>
-                        {c.icon || "📦"} {c.name}
-                      </option>
-                    ))}
-                  </select>
-                </div>
+              {/* Category (expense only) and Account */}
+              <div className={`grid gap-3 ${ form.type === "expense" ? "grid-cols-1 sm:grid-cols-2" : "grid-cols-1" }`}>
+                {/* Category — only shown for expenses */}
+                {form.type === "expense" && (
+                  <div>
+                    <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
+                      Category *
+                    </label>
+                    <select
+                      value={form.categoryId}
+                      onChange={(e) => setForm({ ...form, categoryId: e.target.value })}
+                      required
+                      className="w-full px-3 py-2.5 text-sm border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-900 rounded-xl text-gray-900 dark:text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
+                    >
+                      <option value="">Select category</option>
+                      {categories.map((c) => (
+                        <option key={c.id} value={c.id}>
+                          {c.icon || "📦"} {c.name}
+                        </option>
+                      ))}
+                    </select>
+                  </div>
+                )}
 
                 <div>
                   <label className="block text-xs font-medium text-gray-700 dark:text-gray-300 mb-1">
-                    Wallet / Account (Optional)
+                    Wallet / Account <span className="text-gray-400 font-normal">(Optional)</span>
                   </label>
                   <select
                     value={form.accountId || ""}

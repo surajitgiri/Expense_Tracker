@@ -37,6 +37,8 @@ export default function DashboardPage() {
   const [transactions, setTransactions] = useState<Transaction[]>([])
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
+  const [lastMonthIncome, setLastMonthIncome] = useState(0)
+  const [lastMonthExpense, setLastMonthExpense] = useState(0)
 
   const { format } = useCurrency()
 
@@ -87,6 +89,19 @@ export default function DashboardPage() {
         const aData = await accRes.json()
         setAccountsData(aData)
       }
+
+      // Fetch last month for trend computation
+      try {
+        const lastMonthDate = new Date()
+        lastMonthDate.setMonth(lastMonthDate.getMonth() - 1)
+        const lastMonth = lastMonthDate.toISOString().slice(0, 7)
+        const lmRes = await fetch(`/api/transactions?month=${lastMonth}`)
+        if (lmRes.ok) {
+          const lmData: Transaction[] = await lmRes.json()
+          setLastMonthIncome(lmData.filter(t => t.type === "income").reduce((s, t) => s + t.amount, 0))
+          setLastMonthExpense(lmData.filter(t => t.type === "expense").reduce((s, t) => s + t.amount, 0))
+        }
+      } catch {}
     } catch {
       console.error("Failed to fetch dashboard data")
     } finally {
@@ -162,6 +177,29 @@ export default function DashboardPage() {
   const netBalance = totalIncome - totalExpense
   const recentTransactions = transactions.slice(0, 5)
 
+  // Trend helpers
+  const trendPct = (current: number, prev: number) => {
+    if (prev === 0) return current > 0 ? 100 : 0
+    return Math.round(((current - prev) / prev) * 100)
+  }
+  const incomeTrend = trendPct(totalIncome, lastMonthIncome)
+  const expenseTrend = trendPct(totalExpense, lastMonthExpense)
+  const lastMonthBalance = lastMonthIncome - lastMonthExpense
+  const balanceTrend = trendPct(netBalance, Math.abs(lastMonthBalance))
+
+  const TrendBadge = ({ pct, inverse = false }: { pct: number; inverse?: boolean }) => {
+    const positive = inverse ? pct <= 0 : pct >= 0
+    if (pct === 0) return null
+    return (
+      <span className={`inline-flex items-center gap-0.5 text-[10px] font-semibold px-1.5 py-0.5 rounded-full ${
+        positive ? "bg-emerald-100 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-400"
+                 : "bg-red-100 text-red-600 dark:bg-red-950/40 dark:text-red-400"
+      }`}>
+        {pct > 0 ? "↑" : "↓"} {Math.abs(pct)}%
+      </span>
+    )
+  }
+
   const greeting = () => {
     const hour = new Date().getHours()
     if (hour < 12) return "Good morning"
@@ -194,6 +232,43 @@ export default function DashboardPage() {
 
   return (
     <div className="space-y-6 max-w-5xl mx-auto transition-colors duration-200">
+
+      {/* Onboarding checklist banner — shown only when user has no data yet */}
+      {!loading && transactions.length === 0 && accountsData.accounts.length === 0 && (
+        <div className="bg-gradient-to-r from-indigo-50 to-blue-50 dark:from-indigo-950/40 dark:to-blue-950/30 border border-indigo-200/60 dark:border-indigo-800/40 rounded-2xl p-5">
+          <div className="flex items-start gap-4">
+            <div className="w-10 h-10 rounded-xl bg-indigo-100 dark:bg-indigo-900/50 flex items-center justify-center shrink-0">
+              <span className="text-lg">🚀</span>
+            </div>
+            <div className="flex-1">
+              <h3 className="text-sm font-bold text-indigo-900 dark:text-indigo-100 mb-1">Get started with SG-Finance</h3>
+              <p className="text-xs text-indigo-700/70 dark:text-indigo-300/70 mb-3">Complete these steps to set up your financial workspace:</p>
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2">
+                {[
+                  { step: "1", label: "Add an account or wallet", done: accountsData.accounts.length > 0, action: () => setShowAccountModal(true) },
+                  { step: "2", label: "Record your first transaction", done: transactions.length > 0, action: () => window.dispatchEvent(new CustomEvent("openQuickAdd")) },
+                  { step: "3", label: "Set a monthly budget", done: false, action: () => window.location.href = "/home/budget" },
+                ].map((item) => (
+                  <button key={item.step} onClick={item.action}
+                    className={`flex items-center gap-2.5 text-left px-3 py-2.5 rounded-xl border text-xs font-medium transition cursor-pointer ${
+                      item.done
+                        ? "bg-emerald-50 border-emerald-200 text-emerald-700 dark:bg-emerald-950/30 dark:border-emerald-800 dark:text-emerald-400"
+                        : "bg-white dark:bg-gray-800/60 border-indigo-200/60 dark:border-indigo-700/40 text-gray-700 dark:text-gray-200 hover:border-indigo-400 dark:hover:border-indigo-500"
+                    }`}
+                  >
+                    <span className={`w-5 h-5 rounded-full flex items-center justify-center text-[10px] font-bold shrink-0 ${
+                      item.done ? "bg-emerald-500 text-white" : "bg-indigo-100 dark:bg-indigo-900 text-indigo-600 dark:text-indigo-400"
+                    }`}>
+                      {item.done ? "✓" : item.step}
+                    </span>
+                    {item.label}
+                  </button>
+                ))}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
       {/* Header */}
       <div className="mb-6 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
         <div>
@@ -288,24 +363,34 @@ export default function DashboardPage() {
       {/* Monthly Cash Flow Stats Cards */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 mb-8">
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Net Balance</h2>
-          <p
-            className={`text-2xl font-bold mt-2 ${
-              netBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"
-            }`}
-          >
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Net Balance</h2>
+            <TrendBadge pct={balanceTrend} />
+          </div>
+          <p className={`text-2xl font-bold mt-1 ${
+            netBalance >= 0 ? "text-green-600 dark:text-green-400" : "text-red-500 dark:text-red-400"
+          }`}>
             {format(netBalance)}
           </p>
+          <p className="text-[11px] text-gray-400 mt-1">vs {format(lastMonthBalance)} last month</p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Expenses</h2>
-          <p className="text-2xl font-bold text-red-500 dark:text-red-400 mt-2">-{format(totalExpense)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Expenses</h2>
+            <TrendBadge pct={expenseTrend} inverse />
+          </div>
+          <p className="text-2xl font-bold text-red-500 dark:text-red-400 mt-1">-{format(totalExpense)}</p>
+          <p className="text-[11px] text-gray-400 mt-1">vs {format(lastMonthExpense)} last month</p>
         </div>
 
         <div className="bg-white dark:bg-gray-800 p-5 rounded-2xl shadow-sm border border-gray-100 dark:border-gray-700">
-          <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Income</h2>
-          <p className="text-2xl font-bold text-blue-600 dark:text-blue-400 mt-2">+{format(totalIncome)}</p>
+          <div className="flex items-center justify-between mb-2">
+            <h2 className="text-sm text-gray-500 dark:text-gray-400">Monthly Income</h2>
+            <TrendBadge pct={incomeTrend} />
+          </div>
+          <p className="text-2xl font-bold text-indigo-600 dark:text-indigo-400 mt-1">+{format(totalIncome)}</p>
+          <p className="text-[11px] text-gray-400 mt-1">vs {format(lastMonthIncome)} last month</p>
         </div>
       </div>
 
@@ -314,7 +399,21 @@ export default function DashboardPage() {
         <h2 className="text-lg font-semibold text-gray-800 dark:text-white mb-4">Recent Transactions</h2>
 
         {recentTransactions.length === 0 ? (
-          <p className="text-sm text-gray-400 dark:text-gray-500 text-center py-6">No transactions this month</p>
+          <div className="py-10 flex flex-col items-center justify-center text-center">
+            <div className="w-10 h-10 rounded-xl bg-gray-100 dark:bg-gray-700 flex items-center justify-center mb-3 text-gray-400">
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" strokeWidth={1.5} viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" />
+              </svg>
+            </div>
+            <p className="text-sm font-medium text-gray-600 dark:text-gray-300 mb-1">No transactions this month</p>
+            <p className="text-xs text-gray-400 mb-3">Your recent activity will appear here.</p>
+            <button
+              onClick={() => window.dispatchEvent(new CustomEvent("openQuickAdd"))}
+              className="text-xs font-semibold text-indigo-600 dark:text-indigo-400 hover:underline cursor-pointer"
+            >
+              Add your first transaction →
+            </button>
+          </div>
         ) : (
           <div className="space-y-3">
             {recentTransactions.map((t) => (

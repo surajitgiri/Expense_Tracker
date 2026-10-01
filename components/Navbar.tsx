@@ -52,67 +52,93 @@ export default function Navbar() {
   }
 
   const links = [
-    { href: "/home/dashboard", label: "Dashboard" },
-    { href: "/home/transactions", label: "Transactions" },
-    { href: "/home/subscriptions", label: "Subscriptions" },
-    { href: "/home/goals", label: "Savings Goals" },
-    { href: "/home/budget", label: "Budget" },
-    { href: "/home/analytics", label: "Analytics" },
-    { href: "/home/categories", label: "Categories" },
+    {
+      href: "/home/dashboard", label: "Dashboard",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M3 12l2-2m0 0l7-7 7 7M5 10v10a1 1 0 001 1h3m10-11l2 2m-2-2v10a1 1 0 01-1 1h-3m-6 0a1 1 0 001-1v-4a1 1 0 011-1h2a1 1 0 011 1v4a1 1 0 001 1m-6 0h6" /></svg>
+    },
+    {
+      href: "/home/transactions", label: "Transactions",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 16V4m0 0L3 8m4-4l4 4m6 0v12m0 0l4-4m-4 4l-4-4" /></svg>
+    },
+    {
+      href: "/home/subscriptions", label: "Subscriptions",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" /></svg>
+    },
+    {
+      href: "/home/goals", label: "Savings Goals",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 19v-6a2 2 0 00-2-2H5a2 2 0 00-2 2v6a2 2 0 002 2h2a2 2 0 002-2zm0 0V9a2 2 0 012-2h2a2 2 0 012 2v10m-6 0a2 2 0 002 2h2a2 2 0 002-2m0 0V5a2 2 0 012-2h2a2 2 0 012 2v14a2 2 0 01-2 2h-2a2 2 0 01-2-2z" /></svg>
+    },
+    {
+      href: "/home/budget", label: "Budget",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M9 7h6m0 10v-3m-3 3h.01M9 17h.01M9 14h.01M12 14h.01M15 11h.01M12 11h.01M9 11h.01M7 21h10a2 2 0 002-2V5a2 2 0 00-2-2H7a2 2 0 00-2 2v14a2 2 0 002 2z" /></svg>
+    },
+    {
+      href: "/home/analytics", label: "Analytics",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M16 8v8m-4-5v5m-4-2v2m-2 4h12a2 2 0 002-2V6a2 2 0 00-2-2H6a2 2 0 00-2 2v12a2 2 0 002 2z" /></svg>
+    },
+    {
+      href: "/home/categories", label: "Categories",
+      icon: <svg className="w-3.5 h-3.5" fill="none" stroke="currentColor" strokeWidth={2} viewBox="0 0 24 24"><path strokeLinecap="round" strokeLinejoin="round" d="M7 7h.01M7 3h5c.512 0 1.024.195 1.414.586l7 7a2 2 0 010 2.828l-7 7a2 2 0 01-2.828 0l-7-7A2 2 0 013 12V7a4 4 0 014-4z" /></svg>
+    },
   ]
 
   return (
     <header className="sticky top-0 z-40 w-full bg-white/95 dark:bg-gray-900/95 backdrop-blur-md border-b border-gray-200/80 dark:border-gray-800 transition-colors duration-200 shadow-xs">
       <div className="max-w-7xl mx-auto px-4 sm:px-6 h-16 flex items-center justify-between gap-3">
         
-        {/* 1. Left: Brand Logo (No wrap, sleek gradient mark) */}
+        {/* 1. Left: Brand Logo */}
         <Link
           href="/home/dashboard"
           className="flex items-center gap-2.5 shrink-0 select-none group"
         >
-          <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-blue-600 to-indigo-500 text-white flex items-center justify-center font-black text-sm shadow-sm shadow-blue-500/20 group-hover:scale-105 transition-transform">
-            ET
+          <div
+            className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-xs tracking-tight shadow-sm group-hover:scale-105 transition-transform"
+            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
+          >
+            SG
           </div>
           <span className="font-bold text-base tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
-            Expense<span className="text-blue-600 dark:text-blue-400">Tracker</span>
+            SG<span className="text-violet-600 dark:text-violet-400">-Finance</span>
           </span>
         </Link>
 
-        {/* 2. Center: Desktop Nav Links (Clean Segmented Pill design, no multi-line wrapping) */}
-        <nav className="hidden xl:flex items-center gap-1 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+        {/* 2. Center: Desktop Nav Links with icons */}
+        <nav className="hidden xl:flex items-center gap-0.5 bg-gray-100/70 dark:bg-gray-800/60 p-1 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
           {links.map((link) => {
             const isActive = pathname === link.href
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                className={`flex items-center gap-1.5 whitespace-nowrap px-3 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
                   isActive
-                    ? "bg-white dark:bg-gray-700 text-blue-600 dark:text-white shadow-xs"
+                    ? "bg-white dark:bg-gray-700 text-indigo-600 dark:text-indigo-400 shadow-xs"
                     : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-200/50 dark:hover:bg-gray-700/50"
                 }`}
               >
+                {link.icon}
                 {link.label}
               </Link>
             )
           })}
         </nav>
 
-        {/* Intermediate (lg to xl) fallback nav with compact text if screen is between 1024px and 1280px */}
-        <nav className="hidden lg:flex xl:hidden items-center gap-1">
+        {/* Intermediate (lg to xl) fallback nav */}
+        <nav className="hidden lg:flex xl:hidden items-center gap-0.5">
           {links.map((link) => {
             const isActive = pathname === link.href
             return (
               <Link
                 key={link.href}
                 href={link.href}
-                className={`whitespace-nowrap px-2.5 py-1.5 rounded-lg text-xs font-semibold transition-all duration-150 ${
+                title={link.label}
+                className={`flex items-center justify-center w-8 h-8 rounded-lg text-xs font-semibold transition-all duration-150 ${
                   isActive
-                    ? "bg-blue-50 dark:bg-blue-900/30 text-blue-600 dark:text-blue-400"
+                    ? "bg-indigo-50 dark:bg-indigo-900/30 text-indigo-600 dark:text-indigo-400"
                     : "text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white hover:bg-gray-100 dark:hover:bg-gray-800"
                 }`}
               >
-                {link.label}
+                {link.icon}
               </Link>
             )
           })}

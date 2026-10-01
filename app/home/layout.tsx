@@ -1,7 +1,6 @@
-
-
 import Navbar from "@/components/Navbar";
 import QuickAddModal from "@/components/QuickAddModal";
+import Footer from "@/components/Footer";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import React from "react";
@@ -19,19 +18,22 @@ export default async function DashboardLayout({
     }
 
     return (
-      <div className="min-h-screen bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+      <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200">
 
-  {/* Quick Add Modal (Ctrl+K / Cmd+K Global Listener) */}
-      <QuickAddModal />
+        {/* Quick Add Modal (Ctrl+K / Cmd+K Global Listener) */}
+        <QuickAddModal />
 
-  {/* Navbar */}
-      <Navbar/>
+        {/* Navbar */}
+        <Navbar />
 
-  {/* Page Content */}
-  <div className="p-3.5 sm:p-5 md:p-6 max-w-7xl mx-auto">
-    {children}
-  </div>
+        {/* Page Content */}
+        <div className="flex-1 p-3.5 sm:p-5 md:p-6 max-w-7xl mx-auto w-full">
+          {children}
+        </div>
 
-</div>
+        {/* Footer — appears on every app page */}
+        <Footer />
+
+      </div>
     )
 }

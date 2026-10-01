@@ -7,12 +7,28 @@ exports.sendVerificationEmail = sendVerificationEmail;
 exports.sendForgotPassWordEmail = sendForgotPassWordEmail;
 exports.sendMonthlyDigestEmail = sendMonthlyDigestEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
+const cleanEmailPass = (process.env.EMAIL_PASS || "")
+    .replace(/^["']|["']$/g, "")
+    .replace(/\s+/g, "");
 const transporter = nodemailer_1.default.createTransport({
-    service: "gmail",
+    host: "smtp.gmail.com",
+    port: 465,
+    secure: true,
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASS,
+        user: process.env.EMAIL_USER?.trim(),
+        pass: cleanEmailPass,
     },
+    // Force IPv4 to prevent IPv6 network unreachable / timeout issues on AWS EC2
+    family: 4,
+});
+// Verify SMTP connection on startup so errors are visible immediately in server logs
+transporter.verify((error) => {
+    if (error) {
+        console.error("❌ SMTP connection verification failed:", error.message);
+    }
+    else {
+        console.log("✅ SMTP Server is ready to send emails");
+    }
 });
 const getFrontendUrl = () => process.env.FRONTEND_URL || process.env.NEXTAUTH_URL || "http://localhost:3000";
 async function sendVerificationEmail(email, token) {

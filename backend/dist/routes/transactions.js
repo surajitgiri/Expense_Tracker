@@ -17,19 +17,69 @@ router.get("/", async (req, res, next) => {
         const category = req.query.category;
         const type = req.query.type;
         const month = req.query.month;
-        const transactions = await prisma_1.prisma.transaction.findMany({
-            where: {
-                userId,
-                ...(category && { categoryId: category }),
-                ...(type && { type }),
-                ...(month && {
-                    date: {
-                        gte: new Date(`${month}-01`),
-                        lte: new Date(new Date(`${month}-01`).setMonth(new Date(`${month}-01`).getMonth() + 1)),
-                    },
+        const search = req.query.search;
+        const pageParam = req.query.page;
+        const limitParam = req.query.limit;
+        const where = {
+            userId,
+            ...(category && { categoryId: category }),
+            ...(type && { type }),
+            ...(month && {
+                date: {
+                    gte: new Date(`${month}-01`),
+                    lte: new Date(new Date(`${month}-01`).setMonth(new Date(`${month}-01`).getMonth() + 1)),
+                },
+            }),
+            ...(search && {
+                description: {
+                    contains: search,
+                    mode: "insensitive",
+                },
+            }),
+        };
+        // If pagination requested
+        if (pageParam !== undefined || limitParam !== undefined) {
+            const page = Math.max(1, parseInt(pageParam || "1", 10) || 1);
+            const limit = Math.max(1, Math.min(100, parseInt(limitParam || "15", 10) || 15));
+            const skip = (page - 1) * limit;
+            const [transactions, total, incomeSum, expenseSum] = await Promise.all([
+                prisma_1.prisma.transaction.findMany({
+                    where,
+                    include: { category: true, account: true },
+                    orderBy: { date: "desc" },
+                    skip,
+                    take: limit,
                 }),
-            },
-            include: { category: true },
+                prisma_1.prisma.transaction.count({ where }),
+                prisma_1.prisma.transaction.aggregate({
+                    where: { ...where, type: "income" },
+                    _sum: { amount: true },
+                }),
+                prisma_1.prisma.transaction.aggregate({
+                    where: { ...where, type: "expense" },
+                    _sum: { amount: true },
+                }),
+            ]);
+            const totalPages = Math.ceil(total / limit);
+            const hasMore = page < totalPages;
+            res.json({
+                transactions,
+                total,
+                page,
+                limit,
+                totalPages,
+                hasMore,
+                stats: {
+                    totalIncome: incomeSum._sum.amount || 0,
+                    totalExpense: expenseSum._sum.amount || 0,
+                },
+            });
+            return;
+        }
+        // Default unpaginated query (for dashboard and exports)
+        const transactions = await prisma_1.prisma.transaction.findMany({
+            where,
+            include: { category: true, account: true },
             orderBy: { date: "desc" },
         });
         res.json(transactions);
@@ -51,7 +101,7 @@ router.post("/", (0, validate_1.validate)(transaction_schema_1.createTransaction
             data: {
                 amount: typeof amount === "number" ? amount : parseFloat(amount),
                 type,
-                description,
+                description: description ? description.trim() : "",
                 date: new Date(date),
                 categoryId,
                 accountId: accountId || null,
@@ -89,7 +139,7 @@ router.put("/", (0, validate_1.validate)(transaction_schema_1.updateTransactionS
             data: {
                 ...(amount !== undefined && { amount: typeof amount === "number" ? amount : parseFloat(amount) }),
                 ...(type !== undefined && { type }),
-                ...(description !== undefined && { description }),
+                ...(description !== undefined && { description: description ? description.trim() : "" }),
                 ...(date !== undefined && { date: new Date(date) }),
                 ...(categoryId !== undefined && { categoryId }),
                 ...(accountId !== undefined && { accountId: accountId || null }),

@@ -1,6 +1,7 @@
 import { Router, Response } from "express"
 import { prisma } from "../lib/prisma"
 import { AuthenticatedRequest } from "../middleware/auth"
+import { seedDefaultCategories } from "../lib/seedCategories"
 
 const router = Router()
 
@@ -12,6 +13,10 @@ router.get("/", async (req: AuthenticatedRequest, res: Response): Promise<void> 
       res.status(401).json({ error: "Unauthorized" })
       return
     }
+
+    // Auto-seed default categories for users who have none yet
+    // (covers existing users + any new user who missed the registration seed)
+    await seedDefaultCategories(userId)
 
     const categories = await prisma.category.findMany({
       where: { userId },

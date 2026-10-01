@@ -1,6 +1,6 @@
 "use client"
 
-import React, { createContext , useContext , useState } from "react"
+import React, { createContext, useContext, useState, useEffect } from "react"
 
 type Currency = {
     code: string
@@ -9,13 +9,13 @@ type Currency = {
 }
 
 const CURRENCIES: Currency[] = [
-     { code: "INR", symbol: "₹",  name: "Indian Rupee" },
-     { code: "USD", symbol: "$",  name: "US Dollar" },
-  { code: "EUR", symbol: "€",  name: "Euro" },
-  { code: "GBP", symbol: "£",  name: "British Pound" },
-  { code: "JPY", symbol: "¥",  name: "Japanese Yen" },
-  { code: "AUD", symbol: "A$", name: "Australian Dollar" },
-  { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
+    { code: "INR", symbol: "₹",  name: "Indian Rupee" },
+    { code: "USD", symbol: "$",  name: "US Dollar" },
+    { code: "EUR", symbol: "€",  name: "Euro" },
+    { code: "GBP", symbol: "£",  name: "British Pound" },
+    { code: "JPY", symbol: "¥",  name: "Japanese Yen" },
+    { code: "AUD", symbol: "A$", name: "Australian Dollar" },
+    { code: "CAD", symbol: "C$", name: "Canadian Dollar" },
 ]
 
 type CurrencyContextType = {
@@ -29,25 +29,25 @@ const CurrencyContext = createContext<CurrencyContextType>({
     currency: CURRENCIES[0],
     setCurrency: () => {},
     currencies: CURRENCIES,
-    format: (amount) => `${amount.toFixed(2)}`
+    format: (amount) => `${CURRENCIES[0].symbol}${amount.toFixed(2)}`
 })
 
-export function CurrencyProvider({children}: {children: React.ReactNode}){
-    const [currency , setCurrencyState] = useState<Currency>(() => {
-        if(typeof window !== "undefined"){
-            
+export function CurrencyProvider({ children }: { children: React.ReactNode }) {
+    // Always start with the default so SSR and initial client render match exactly.
+    // We sync from localStorage only after hydration in useEffect.
+    const [currency, setCurrencyState] = useState<Currency>(CURRENCIES[0])
+
+    useEffect(() => {
         const saved = localStorage.getItem("currency")
-        if(saved){
+        if (saved) {
             const found = CURRENCIES.find((c) => c.code === saved)
-            if(found) return found
+            if (found) setCurrencyState(found)
         }
-        }
-        return CURRENCIES[0]
-    })
+    }, [])
 
     const setCurrency = (c: Currency) => {
         setCurrencyState(c)
-        localStorage.setItem("currency" , c.code)
+        localStorage.setItem("currency", c.code)
     }
 
     const format = (amount: number) => {
@@ -55,8 +55,8 @@ export function CurrencyProvider({children}: {children: React.ReactNode}){
     }
 
     return (
-        <CurrencyContext.Provider value={{currency , setCurrency , currencies: CURRENCIES , format}}>
-           {children}
+        <CurrencyContext.Provider value={{ currency, setCurrency, currencies: CURRENCIES, format }}>
+            {children}
         </CurrencyContext.Provider>
     )
 }
