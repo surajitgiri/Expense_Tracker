@@ -91,15 +91,21 @@ export default function Navbar() {
           href="/home/dashboard"
           className="flex items-center gap-2.5 shrink-0 select-none group"
         >
-          <div
-            className="w-9 h-9 rounded-xl text-white flex items-center justify-center font-black text-xs tracking-tight shadow-sm group-hover:scale-105 transition-transform"
-            style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}
-          >
-            SG
+          <div className="relative h-10 w-10 rounded-xl overflow-hidden shadow-xs border border-gray-200/80 dark:border-gray-800 bg-[#0C144C] group-hover:scale-105 transition-transform flex items-center justify-center p-0.5 shrink-0">
+            <img
+              src="/logo.svg"
+              alt="SG-Finance Logo"
+              className="w-full h-full object-contain"
+            />
           </div>
-          <span className="font-bold text-base tracking-tight text-gray-900 dark:text-white whitespace-nowrap">
-            SG<span className="text-violet-600 dark:text-violet-400">-Finance</span>
-          </span>
+          <div className="flex flex-col">
+            <span className="font-extrabold text-sm sm:text-base tracking-tight text-gray-900 dark:text-white whitespace-nowrap leading-tight">
+              SG<span className="text-amber-500">-FINANCE</span>
+            </span>
+            <span className="text-[10px] font-medium text-gray-400 dark:text-gray-500 uppercase tracking-wider leading-none">
+              Since 2020
+            </span>
+          </div>
         </Link>
 
         {/* 2. Center: Desktop Nav Links with icons */}
@@ -225,6 +231,30 @@ export default function Navbar() {
                         <span>⚙️</span>
                         <span>Settings</span>
                       </Link>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenDropdown(false);
+                          window.dispatchEvent(new CustomEvent("openFeatureTour"));
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-violet-600 dark:text-violet-400 hover:bg-violet-50 dark:hover:bg-violet-950/40 rounded-xl transition cursor-pointer text-left"
+                      >
+                        <span>✨</span>
+                        <span>Feature Tour</span>
+                      </button>
+
+                      <button
+                        type="button"
+                        onClick={() => {
+                          setOpenDropdown(false);
+                          window.dispatchEvent(new CustomEvent("openFeatureTour", { detail: { startAtCurrency: true } }));
+                        }}
+                        className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-medium text-blue-600 dark:text-blue-400 hover:bg-blue-50 dark:hover:bg-blue-950/40 rounded-xl transition cursor-pointer text-left"
+                      >
+                        <span>🌐</span>
+                        <span>Currency Setup</span>
+                      </button>
                     </div>
 
                     {/* Divider */}
@@ -300,6 +330,33 @@ export default function Navbar() {
                 {link.label}
               </Link>
             ))}
+          </div>
+
+          {/* Mobile Tour & Currency Buttons */}
+          <div className="grid grid-cols-2 gap-2 mt-2">
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                window.dispatchEvent(new CustomEvent("openFeatureTour"));
+              }}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-violet-50 dark:bg-violet-950/40 text-violet-700 dark:text-violet-300 border border-violet-200/80 dark:border-violet-800/60 transition"
+            >
+              <span>✨</span>
+              <span>Tour</span>
+            </button>
+
+            <button
+              type="button"
+              onClick={() => {
+                setMenuOpen(false);
+                window.dispatchEvent(new CustomEvent("openFeatureTour", { detail: { startAtCurrency: true } }));
+              }}
+              className="flex items-center justify-center gap-1.5 px-3 py-2 rounded-xl text-xs font-semibold bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 border border-blue-200/80 dark:border-blue-800/60 transition"
+            >
+              <span>🌐</span>
+              <span>Currency</span>
+            </button>
           </div>
 
           {/* Mobile Profile & Logout */}

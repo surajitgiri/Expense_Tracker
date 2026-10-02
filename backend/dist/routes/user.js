@@ -22,6 +22,7 @@ router.get("/", async (req, res) => {
                 name: true,
                 email: true,
                 theme: true,
+                currency: true,
                 avatar: true,
                 googleId: true,
                 _count: {
@@ -52,7 +53,7 @@ router.patch("/", async (req, res) => {
             res.status(401).json({ error: "Unauthorized" });
             return;
         }
-        const { name, email, theme, currentPassword, newPassword } = req.body;
+        const { name, email, theme, currency, currentPassword, newPassword } = req.body;
         const user = await prisma_1.prisma.user.findUnique({
             where: { id: userId },
         });
@@ -94,6 +95,7 @@ router.patch("/", async (req, res) => {
                 ...(name && { name }),
                 ...(email && { email }),
                 ...(theme && { theme }),
+                ...(currency && { currency }),
                 ...(newPassword && {
                     password: await bcrypt_1.default.hash(newPassword, 10),
                 }),
@@ -103,6 +105,7 @@ router.patch("/", async (req, res) => {
                 name: true,
                 email: true,
                 theme: true,
+                currency: true,
             },
         });
         res.json(updated);

@@ -14,6 +14,7 @@ model User {
   googleId  String?  @unique
   avatar    String?
   theme     String   @default("light")
+  currency  String?  @default("INR")
   createdAt DateTime @default(now())
 
   // Email verification

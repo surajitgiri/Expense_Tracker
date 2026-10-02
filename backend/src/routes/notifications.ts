@@ -85,5 +85,29 @@ router.post("/test-digest", async (req: AuthenticatedRequest, res: Response): Pr
   }
 })
 
+// POST /api/notifications/trigger-all-digests
+// Triggers the batch digest for all verified users immediately
+router.post("/trigger-all-digests", async (req: AuthenticatedRequest, res: Response): Promise<void> => {
+  try {
+    const userId = req.user?.id
+    if (!userId) {
+      res.status(401).json({ success: false, error: "Unauthorized" })
+      return
+    }
+
+    const { sendMonthlyDigestsToAllUsers } = await import("../services/monthlyDigest")
+    const summary = await sendMonthlyDigestsToAllUsers()
+
+    res.json({
+      success: true,
+      message: "Batch monthly digests triggered successfully",
+      summary,
+    })
+  } catch (error: any) {
+    console.error("POST /notifications/trigger-all-digests error:", error)
+    res.status(500).json({ success: false, error: error?.message || "Something went wrong" })
+  }
+})
+
 export default router
 

@@ -42,7 +42,9 @@ router.get("/", async (req: AuthenticatedRequest, res: Response): Promise<void> 
       _sum: { amount: true },
     })
 
-    const categoryIds = byCategory.map((b) => b.categoryId)
+    const categoryIds = byCategory
+      .map((b) => b.categoryId)
+      .filter((id): id is string => Boolean(id))
     const categories = await prisma.category.findMany({
       where: { id: { in: categoryIds } },
     })

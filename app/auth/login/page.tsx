@@ -110,11 +110,15 @@ export default function LoginPage() {
 
                 {/* Logo */}
                 <div className="flex items-center gap-3 relative z-10">
-                    <div className="w-10 h-10 rounded-xl flex items-center justify-center font-black text-sm tracking-tight text-white"
-                        style={{ background: "linear-gradient(135deg, #7c3aed, #4f46e5)" }}>
-                        SG
+                    <div className="w-11 h-11 rounded-xl overflow-hidden bg-[#0C144C] border border-white/10 flex items-center justify-center p-1 shadow-lg shrink-0">
+                        <img src="/logo.svg" alt="SG-Finance Logo" className="w-full h-full object-contain" />
                     </div>
-                    <span className="font-bold text-xl tracking-tight text-white">SG-Finance</span>
+                    <div>
+                        <span className="font-extrabold text-xl tracking-tight text-white block leading-tight">
+                            SG<span className="text-amber-400">-FINANCE</span>
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-gray-400 font-semibold">Since 2020</span>
+                    </div>
                 </div>
 
                 {/* Hero copy */}
@@ -163,13 +167,16 @@ export default function LoginPage() {
             {/* ── Right panel: Form ── */}
             <div className="flex-1 flex flex-col items-center justify-center px-6 py-12 lg:px-12">
                 {/* Mobile logo */}
-                <div className="lg:hidden flex items-center gap-2 mb-8">
-                    <div className="w-9 h-9 rounded-xl bg-gradient-to-tr from-indigo-600 to-blue-500 text-white flex items-center justify-center font-black text-base shadow-sm">
-                        F
+                <div className="lg:hidden flex items-center gap-2.5 mb-8">
+                    <div className="w-10 h-10 rounded-xl overflow-hidden bg-[#0C144C] border border-gray-200 dark:border-gray-800 flex items-center justify-center p-1 shadow-xs shrink-0">
+                        <img src="/logo.svg" alt="SG-Finance Logo" className="w-full h-full object-contain" />
                     </div>
-                    <span className="font-bold text-lg tracking-tight text-gray-900 dark:text-white">
-                        SG-Finance
-                    </span>
+                    <div>
+                        <span className="font-extrabold text-lg tracking-tight text-gray-900 dark:text-white block leading-tight">
+                            SG<span className="text-amber-500">-FINANCE</span>
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-medium">Since 2020</span>
+                    </div>
                 </div>
 
                 <div className="w-full max-w-md space-y-6">

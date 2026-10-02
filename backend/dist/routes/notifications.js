@@ -110,4 +110,26 @@ router.post("/test-digest", async (req, res) => {
         res.status(500).json({ success: false, error: error?.message || "Something went wrong" });
     }
 });
+// POST /api/notifications/trigger-all-digests
+// Triggers the batch digest for all verified users immediately
+router.post("/trigger-all-digests", async (req, res) => {
+    try {
+        const userId = req.user?.id;
+        if (!userId) {
+            res.status(401).json({ success: false, error: "Unauthorized" });
+            return;
+        }
+        const { sendMonthlyDigestsToAllUsers } = await Promise.resolve().then(() => __importStar(require("../services/monthlyDigest")));
+        const summary = await sendMonthlyDigestsToAllUsers();
+        res.json({
+            success: true,
+            message: "Batch monthly digests triggered successfully",
+            summary,
+        });
+    }
+    catch (error) {
+        console.error("POST /notifications/trigger-all-digests error:", error);
+        res.status(500).json({ success: false, error: error?.message || "Something went wrong" });
+    }
+});
 exports.default = router;

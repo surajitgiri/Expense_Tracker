@@ -11,6 +11,7 @@ const prisma_1 = require("../lib/prisma");
 const token_1 = require("../lib/token");
 const mail_1 = require("../lib/mail");
 const rateLimiter_1 = require("../middleware/rateLimiter");
+const seedCategories_1 = require("../lib/seedCategories");
 const router = (0, express_1.Router)();
 const googleClient = new google_auth_library_1.OAuth2Client(process.env.GOOGLE_CLIENT_ID);
 const getJwtSecret = () => process.env.JWT_SECRET ||
@@ -135,7 +136,7 @@ router.post("/google", rateLimiter_1.authLimiter, async (req, res) => {
             });
         }
         else {
-            // New user registration via Google
+            // New user registration via Google — create user + seed default categories
             user = await prisma_1.prisma.user.create({
                 data: {
                     email,
@@ -145,6 +146,8 @@ router.post("/google", rateLimiter_1.authLimiter, async (req, res) => {
                     isVerified: true,
                 },
             });
+            // Seed default categories for new Google users immediately
+            await (0, seedCategories_1.seedDefaultCategories)(user.id);
         }
         const token = jsonwebtoken_1.default.sign({ id: user.id, email: user.email }, getJwtSecret(), { expiresIn: "30d" });
         res.cookie("token", token, {
@@ -248,6 +251,8 @@ router.get("/verify-email", async (req, res) => {
                 verifyTokenExpiry: null,
             },
         });
+        // Seed default categories for newly verified email users
+        await (0, seedCategories_1.seedDefaultCategories)(user.id);
         res.json({ message: "Email verified successfully" });
     }
     catch (error) {

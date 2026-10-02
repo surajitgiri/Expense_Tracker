@@ -1,9 +1,29 @@
 import Navbar from "@/components/Navbar";
 import QuickAddModal from "@/components/QuickAddModal";
+import OnboardingTour from "@/components/OnboardingTour";
 import Footer from "@/components/Footer";
 import { cookies } from "next/headers";
 import { redirect } from "next/navigation";
 import React from "react";
+import type { Metadata } from "next";
+
+export const metadata: Metadata = {
+  title: {
+    template: "%s | SG-Finance",
+    default: "Dashboard",
+  },
+  robots: {
+    index: false,
+    follow: false,
+    googleBot: {
+      index: false,
+      follow: false,
+      noimageindex: true,
+      noarchive: true,
+    },
+  },
+};
+
 
 export default async function DashboardLayout({
     children,
@@ -19,6 +39,9 @@ export default async function DashboardLayout({
 
     return (
       <div className="min-h-screen flex flex-col bg-gray-100 dark:bg-gray-950 text-gray-900 dark:text-gray-100 transition-colors duration-200">
+
+        {/* Feature Tour Modal for new users */}
+        <OnboardingTour />
 
         {/* Quick Add Modal (Ctrl+K / Cmd+K Global Listener) */}
         <QuickAddModal />

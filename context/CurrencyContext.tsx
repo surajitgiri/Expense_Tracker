@@ -1,14 +1,14 @@
 "use client"
 
-import React, { createContext, useContext, useState, useEffect } from "react"
+import React, { createContext, useContext, useState, useEffect, useCallback } from "react"
 
-type Currency = {
+export type Currency = {
     code: string
     symbol: string
     name: string
 }
 
-const CURRENCIES: Currency[] = [
+export const CURRENCIES: Currency[] = [
     { code: "INR", symbol: "₹",  name: "Indian Rupee" },
     { code: "USD", symbol: "$",  name: "US Dollar" },
     { code: "EUR", symbol: "€",  name: "Euro" },
@@ -20,35 +20,78 @@ const CURRENCIES: Currency[] = [
 
 type CurrencyContextType = {
     currency: Currency
-    setCurrency: (c: Currency) => void
+    setCurrency: (c: Currency) => Promise<void>
     currencies: Currency[]
     format: (amount: number) => string
 }
 
 const CurrencyContext = createContext<CurrencyContextType>({
     currency: CURRENCIES[0],
-    setCurrency: () => {},
+    setCurrency: async () => {},
     currencies: CURRENCIES,
     format: (amount) => `${CURRENCIES[0].symbol}${amount.toFixed(2)}`
 })
 
 export function CurrencyProvider({ children }: { children: React.ReactNode }) {
-    // Always start with the default so SSR and initial client render match exactly.
-    // We sync from localStorage only after hydration in useEffect.
     const [currency, setCurrencyState] = useState<Currency>(CURRENCIES[0])
 
+    const getToken = () => {
+        try {
+            const match = document.cookie.match(/(?:^|;\s*)token=([^;]+)/);
+            const cookieToken = match ? decodeURIComponent(match[1]).trim() : null;
+            return cookieToken || localStorage.getItem("token")?.trim() || null;
+        } catch {
+            return null;
+        }
+    };
+
     useEffect(() => {
+        // 1. Initial local load
         const saved = localStorage.getItem("currency")
         if (saved) {
             const found = CURRENCIES.find((c) => c.code === saved)
             if (found) setCurrencyState(found)
         }
+
+        // 2. Sync with user database profile if authenticated
+        const token = getToken();
+        if (token) {
+            fetch("/api/user", {
+                headers: { Authorization: `Bearer ${token}` }
+            })
+            .then((res) => (res.ok ? res.json() : null))
+            .then((user) => {
+                if (user?.currency) {
+                    const found = CURRENCIES.find((c) => c.code === user.currency)
+                    if (found) {
+                        setCurrencyState(found)
+                        localStorage.setItem("currency", found.code)
+                    }
+                }
+            })
+            .catch(() => {});
+        }
     }, [])
 
-    const setCurrency = (c: Currency) => {
+    const setCurrency = useCallback(async (c: Currency) => {
         setCurrencyState(c)
-        localStorage.setItem("currency", c.code)
-    }
+        try {
+            localStorage.setItem("currency", c.code)
+            const token = getToken();
+            if (token) {
+                await fetch("/api/user", {
+                    method: "PATCH",
+                    headers: {
+                        "Content-Type": "application/json",
+                        Authorization: `Bearer ${token}`
+                    },
+                    body: JSON.stringify({ currency: c.code })
+                }).catch(() => {});
+            }
+        } catch (e) {
+            console.error("Failed to save currency:", e);
+        }
+    }, [])
 
     const format = (amount: number) => {
         return `${currency.symbol}${amount.toFixed(2)}`

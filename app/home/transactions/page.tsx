@@ -52,6 +52,8 @@ export default function TransactionPage() {
   const fileInputRef = useRef<HTMLInputElement>(null)
   const isFetchingRef = useRef(false)
   const [accounts, setAccounts] = useState<any[]>([])
+  const [downloadingPdf, setDownloadingPdf] = useState(false)
+  const [userProfile, setUserProfile] = useState<{ name: string; email: string } | null>(null)
 
   const [form, setForm] = useState({
     amount: "",
@@ -65,8 +67,50 @@ export default function TransactionPage() {
   const { format, currency } = useCurrency();
   const { toast } = useToast();
 
+  const getPdfCurrencySymbol = (code: string) => {
+    switch (code) {
+      case "INR":
+        return "Rs."
+      case "USD":
+        return "$"
+      case "EUR":
+        return "€"
+      case "GBP":
+        return "£"
+      case "JPY":
+        return "¥"
+      case "AUD":
+        return "A$"
+      case "CAD":
+        return "C$"
+      default:
+        return code
+    }
+  }
+
+  const formatPdfAmount = (
+    amount: number,
+    options?: { showSign?: boolean; type?: "income" | "expense" | "balance" }
+  ) => {
+    const sym = getPdfCurrencySymbol(currency.code)
+    const formattedNum = Math.abs(amount).toLocaleString("en-US", {
+      minimumFractionDigits: 2,
+      maximumFractionDigits: 2,
+    })
+
+    if (options?.showSign) {
+      if (options.type === "income" || (options.type === "balance" && amount > 0)) {
+        return `+ ${sym} ${formattedNum}`
+      }
+      if (options.type === "expense" || (options.type === "balance" && amount < 0)) {
+        return `- ${sym} ${formattedNum}`
+      }
+    }
+    return `${sym} ${formattedNum}`
+  }
+
   const pdfFormat = (amount: number) => {
-    return `${currency.code} ${amount.toFixed(2)}`
+    return formatPdfAmount(amount)
   }
 
   const fetchTransactions = async (pageToFetch = page, limitToFetch = limit) => {
@@ -154,6 +198,14 @@ export default function TransactionPage() {
   useEffect(() => {
     fetchCategories()
     fetchAccounts()
+    fetch("/api/user")
+      .then((res) => (res.ok ? res.json() : null))
+      .then((data) => {
+        if (data?.name || data?.email) {
+          setUserProfile({ name: data.name || "Personal Account", email: data.email || "" })
+        }
+      })
+      .catch(() => {})
   }, [])
 
   // Refetch page 1 whenever filters, search query, or limit changes
@@ -356,79 +408,333 @@ export default function TransactionPage() {
   }
 
   const handleDownloadPDF = async () => {
-    if (transactions.length === 0) return;
-    const exportData = await getAllTransactionsForExport()
-    if (exportData.length === 0) return;
+    if (transactions.length === 0 || downloadingPdf) return
+    setDownloadingPdf(true)
 
-    const doc = new jsPDF()
+    try {
+      const exportData = await getAllTransactionsForExport()
+      if (exportData.length === 0) {
+        toast({
+          type: "info",
+          message: "No transactions found",
+          description: "There are no transactions to export for the selected filter.",
+        })
+        return
+      }
 
-    // Title
-    doc.setFontSize(18)
-    doc.setTextColor(40, 40, 40)
-    doc.text("Transaction Report", 14, 20)
+      const doc = new jsPDF()
 
-    // Subtitle — month
-    doc.setFontSize(11)
-    doc.setTextColor(120, 120, 120)
-    doc.text(
-      `Month: ${filterMonth || new Date().toISOString().slice(0, 7)}`,
-      14, 30
-    )
+      // 1. Calculate actual totals for this exported dataset
+      const exportIncome = exportData
+        .filter((t) => t.type === "income")
+        .reduce((sum, t) => sum + t.amount, 0)
+      const exportExpense = exportData
+        .filter((t) => t.type === "expense")
+        .reduce((sum, t) => sum + t.amount, 0)
+      const exportBalance = exportIncome - exportExpense
 
-    // Summary
-    doc.setFontSize(11)
-    doc.setTextColor(40, 40, 40)
-    doc.text(`Total Income:  ${pdfFormat(totalIncome)}`, 14, 42)
-    doc.text(`Total Expense: ${pdfFormat(totalExpense)}`, 14, 50)
-    doc.text(`Balance:       ${pdfFormat(totalIncome - totalExpense)}`, 14, 58)
+      // Formatted period title
+      let periodTitle = "All Time Activity"
+      if (filterMonth) {
+        const [y, m] = filterMonth.split("-")
+        if (y && m) {
+          const d = new Date(parseInt(y), parseInt(m) - 1, 1)
+          periodTitle = d.toLocaleDateString("en-US", { month: "long", year: "numeric" })
+        }
+      }
 
-    // Table
-    autoTable(doc, {
-      startY: 68,
-      head: [["Date", "Description", "Category", "Type", "Amount"]],
-      body: exportData.map((t) => [
-        new Date(t.date).toLocaleDateString("en-US", {
-          month: "short", day: "numeric", year: "numeric",
-        }),
-        t.description || "—",
-        t.category?.name || "—",
-        t.type.charAt(0).toUpperCase() + t.type.slice(1),
-        `${t.type === "income" ? "+" : "-"}${pdfFormat(t.amount)}`,
-      ]),
-      styles: {
-        fontSize: 10,
-        cellPadding: 4,
-      },
-      headStyles: {
-        fillColor: [79, 70, 229],
-        textColor: 255,
-        fontStyle: "bold",
-      },
-      bodyStyles: {
-        textColor: [40, 40, 40],
-      },
-      alternateRowStyles: {
-        fillColor: [245, 245, 255],
-      },
-      columnStyles: {
-        4: { halign: "right" },
-      },
-    })
+      // 2. Executive Header Banner
+      // Deep navy background card matching logo (#0C144C)
+      doc.setFillColor(12, 20, 76)
+      doc.roundedRect(14, 12, 182, 34, 3, 3, "F")
 
-    // Footer
-    const pageCount = (doc as any).internal.getNumberOfPages()
-    for (let i = 1; i <= pageCount; i++) {
-      doc.setPage(i)
-      doc.setFontSize(9)
-      doc.setTextColor(150)
+      // Embed Official Logo Image
+      let textStartX = 36
+      try {
+        const logoDataUrl = await new Promise<string | null>((resolve) => {
+          const img = new Image()
+          img.crossOrigin = "anonymous"
+          img.onload = () => {
+            try {
+              const canvas = document.createElement("canvas")
+              canvas.width = 640
+              canvas.height = 512
+              const ctx = canvas.getContext("2d")
+              if (ctx) {
+                ctx.drawImage(img, 0, 0, 640, 512)
+                resolve(canvas.toDataURL("image/png"))
+              } else {
+                resolve(null)
+              }
+            } catch {
+              resolve(null)
+            }
+          }
+          img.onerror = () => resolve(null)
+          img.src = "/logo.svg"
+        })
+
+        if (logoDataUrl) {
+          doc.addImage(logoDataUrl, "PNG", 18, 14, 26, 20.8)
+          textStartX = 48
+        } else {
+          doc.setFillColor(244, 165, 21)
+          doc.roundedRect(20, 18, 12, 12, 2.5, 2.5, "F")
+          doc.setTextColor(12, 20, 76)
+          doc.setFont("helvetica", "bold")
+          doc.setFontSize(9)
+          doc.text("SG", 23.5, 25.8)
+          textStartX = 36
+        }
+      } catch {
+        textStartX = 36
+      }
+
+      // Brand Title & Statement Type
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(14)
+      doc.setTextColor(255, 255, 255)
+      doc.text("SG-FINANCE", textStartX, 23)
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8)
+      doc.setTextColor(244, 165, 21) // Amber #F4A515 from logo
+      doc.text("Since 2020  •  Official Financial Activity Statement", textStartX, 28)
+
+      const accountName = userProfile?.name || "Personal Account"
+      const accountEmail = userProfile?.email ? ` • ${userProfile.email}` : ""
+      doc.setFontSize(7.5)
+      doc.setTextColor(203, 213, 225) // Slate-300
+      doc.text(`Account: ${accountName}${accountEmail}`, textStartX, 34)
+
+      // Header Right: Period & Default Currency Badge
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(11)
+      doc.setTextColor(255, 255, 255)
+      doc.text(periodTitle, 190, 22.5, { align: "right" })
+
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8)
+      doc.setTextColor(199, 210, 254) // Indigo-200
+      doc.text(`Default Currency: ${currency.name} (${currency.code})`, 190, 28, { align: "right" })
+
+      doc.setFontSize(7.5)
+      doc.setTextColor(148, 163, 184) // Slate-400
+      const genDate = new Date().toLocaleDateString("en-US", {
+        month: "short",
+        day: "numeric",
+        year: "numeric",
+      })
+      doc.text(`Generated: ${genDate}`, 190, 34, { align: "right" })
+
+      // 3. Metadata Strip
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(8)
+      doc.setTextColor(71, 85, 105) // Slate-600
+      doc.text("FINANCIAL SUMMARY", 14, 52)
+
+      const metaFilterItems = [
+        filterType ? `Type: ${filterType.toUpperCase()}` : "All Types",
+        search ? `Search: "${search}"` : null,
+        `${exportData.length} ${exportData.length === 1 ? "Transaction" : "Transactions"}`,
+      ].filter(Boolean)
+      doc.setFont("helvetica", "normal")
+      doc.setFontSize(8)
+      doc.setTextColor(100, 116, 139)
+      doc.text(metaFilterItems.join("  •  "), 196, 52, { align: "right" })
+
+      // 4. Three Modern Metric Summary Cards
+      const cardWidth = 57.3
+      const cardHeight = 21
+      const cardY = 56
+
+      // Card 1: TOTAL INCOME
+      doc.setFillColor(240, 253, 244) // Emerald-50
+      doc.setDrawColor(187, 247, 208) // Emerald-200
+      doc.setLineWidth(0.3)
+      doc.roundedRect(14, cardY, cardWidth, cardHeight, 2.5, 2.5, "FD")
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(7.5)
+      doc.setTextColor(22, 101, 52) // Emerald-800
+      doc.text("TOTAL INCOME", 18, cardY + 6.5)
+
+      doc.setFontSize(11)
+      doc.setTextColor(21, 128, 61) // Emerald-700
       doc.text(
-        `Page ${i} of ${pageCount} — Generated on ${new Date().toLocaleDateString()}`,
-        14,
-        doc.internal.pageSize.height - 10
+        formatPdfAmount(exportIncome, { showSign: true, type: "income" }),
+        18,
+        cardY + 15
       )
-    }
 
-    doc.save(`transactions-${filterMonth || new Date().toISOString().slice(0, 7)}.pdf`)
+      // Card 2: TOTAL EXPENSES
+      const card2X = 14 + cardWidth + 5
+      doc.setFillColor(254, 242, 242) // Rose-50
+      doc.setDrawColor(254, 202, 202) // Rose-200
+      doc.roundedRect(card2X, cardY, cardWidth, cardHeight, 2.5, 2.5, "FD")
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(7.5)
+      doc.setTextColor(153, 27, 27) // Rose-800
+      doc.text("TOTAL EXPENSES", card2X + 4, cardY + 6.5)
+
+      doc.setFontSize(11)
+      doc.setTextColor(220, 38, 38) // Rose-600
+      doc.text(
+        formatPdfAmount(exportExpense, { showSign: true, type: "expense" }),
+        card2X + 4,
+        cardY + 15
+      )
+
+      // Card 3: NET BALANCE / SURPLUS
+      const card3X = card2X + cardWidth + 5
+      const isNetPositive = exportBalance >= 0
+
+      if (isNetPositive) {
+        doc.setFillColor(238, 242, 255) // Indigo-50
+        doc.setDrawColor(199, 210, 254) // Indigo-200
+      } else {
+        doc.setFillColor(255, 247, 237) // Amber-50
+        doc.setDrawColor(254, 215, 170) // Amber-200
+      }
+      doc.roundedRect(card3X, cardY, cardWidth, cardHeight, 2.5, 2.5, "FD")
+
+      doc.setFont("helvetica", "bold")
+      doc.setFontSize(7.5)
+      doc.setTextColor(isNetPositive ? 55 : 154, isNetPositive ? 48 : 52, isNetPositive ? 163 : 18)
+      doc.text(isNetPositive ? "NET BALANCE" : "NET DEFICIT", card3X + 4, cardY + 6.5)
+
+      doc.setFontSize(11)
+      doc.setTextColor(isNetPositive ? 67 : 194, isNetPositive ? 56 : 65, isNetPositive ? 202 : 12)
+      doc.text(
+        formatPdfAmount(exportBalance, { showSign: true, type: "balance" }),
+        card3X + 4,
+        cardY + 15
+      )
+
+      // 5. Transaction Statement Table
+      autoTable(doc, {
+        startY: 83,
+        head: [["Date", "Description", "Category", "Account", "Type", "Amount"]],
+        body: exportData.map((t) => {
+          const formattedDate = new Date(t.date).toLocaleDateString("en-US", {
+            month: "short",
+            day: "numeric",
+            year: "numeric",
+          })
+          const desc = t.description?.trim() || "—"
+          const cat = t.category?.name || "General"
+          const acc = t.account?.name || "Default"
+          const isIncome = t.type === "income"
+          const typeLabel = isIncome ? "Income" : "Expense"
+          const amountStr = formatPdfAmount(t.amount, {
+            showSign: true,
+            type: isIncome ? "income" : "expense",
+          })
+          return [formattedDate, desc, cat, acc, typeLabel, amountStr]
+        }),
+        theme: "striped",
+        styles: {
+          fontSize: 8.5,
+          cellPadding: { top: 3.5, right: 3.5, bottom: 3.5, left: 3.5 },
+          textColor: [51, 65, 85],
+          lineColor: [241, 245, 249],
+          lineWidth: 0.1,
+          font: "helvetica",
+        },
+        headStyles: {
+          fillColor: [15, 23, 42], // Midnight slate header
+          textColor: [255, 255, 255],
+          fontStyle: "bold",
+          fontSize: 8,
+          halign: "left",
+        },
+        alternateRowStyles: {
+          fillColor: [248, 250, 252],
+        },
+        columnStyles: {
+          0: { cellWidth: 25 },
+          1: { cellWidth: "auto" },
+          2: { cellWidth: 28 },
+          3: { cellWidth: 24 },
+          4: { cellWidth: 22, halign: "center" },
+          5: { cellWidth: 34, halign: "right", fontStyle: "bold" },
+        },
+        didParseCell: (data) => {
+          if (data.section === "body") {
+            const rowData = exportData[data.row.index]
+            if (rowData) {
+              // Amount column
+              if (data.column.index === 5) {
+                if (rowData.type === "income") {
+                  data.cell.styles.textColor = [22, 101, 52] // Emerald-700
+                } else {
+                  data.cell.styles.textColor = [220, 38, 38] // Rose-600
+                }
+              }
+              // Type column
+              if (data.column.index === 4) {
+                if (rowData.type === "income") {
+                  data.cell.styles.textColor = [22, 101, 52]
+                  data.cell.styles.fontStyle = "bold"
+                } else {
+                  data.cell.styles.textColor = [153, 27, 27]
+                }
+              }
+            }
+          }
+        },
+      })
+
+      // 6. Professional Page Footers
+      const pageCount = (doc as any).internal.getNumberOfPages()
+      for (let i = 1; i <= pageCount; i++) {
+        doc.setPage(i)
+        const pageHeight = doc.internal.pageSize.height
+
+        // Top divider line for footer
+        doc.setDrawColor(226, 232, 240) // Slate-200
+        doc.setLineWidth(0.3)
+        doc.line(14, pageHeight - 12, 196, pageHeight - 12)
+
+        // Left audit trail text
+        doc.setFont("helvetica", "normal")
+        doc.setFontSize(7.5)
+        doc.setTextColor(148, 163, 184) // Slate-400
+        doc.text(
+          "SG-Finance • Automated Financial Tracking Statement • Confidential",
+          14,
+          pageHeight - 7
+        )
+
+        // Right pagination & currency info
+        doc.setTextColor(100, 116, 139) // Slate-500
+        doc.text(
+          `Page ${i} of ${pageCount}  •  ${currency.code} (${currency.symbol})`,
+          196,
+          pageHeight - 7,
+          { align: "right" }
+        )
+      }
+
+      const filenamePeriod = filterMonth || new Date().toISOString().slice(0, 7)
+      doc.save(`SG-Finance-Transactions-${filenamePeriod}.pdf`)
+
+      toast({
+        type: "success",
+        message: "PDF Statement Exported",
+        description: `Exported ${exportData.length} transactions formatted in ${currency.code}.`,
+      })
+    } catch (err) {
+      console.error("Failed to generate PDF:", err)
+      toast({
+        type: "error",
+        message: "PDF Export Failed",
+        description: "An unexpected error occurred while generating the PDF statement.",
+      })
+    } finally {
+      setDownloadingPdf(false)
+    }
   }
 
   const totalIncome =
@@ -485,14 +791,21 @@ export default function TransactionPage() {
           {/* Download PDF Button */}
           <button
             onClick={handleDownloadPDF}
-            disabled={transactions.length === 0}
+            disabled={transactions.length === 0 || downloadingPdf}
             className="flex cursor-pointer items-center justify-center gap-1.5 border border-gray-200 dark:border-gray-700 bg-white dark:bg-gray-800 text-gray-700 dark:text-gray-200 hover:bg-gray-50 dark:hover:bg-gray-700 text-xs sm:text-sm font-medium px-2.5 sm:px-3 py-2 rounded-lg transition shadow-xs disabled:opacity-40 disabled:cursor-not-allowed"
-            title="Download PDF"
+            title="Download PDF Statement"
           >
-            <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
-              <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
-            </svg>
-            <span className="hidden sm:inline">Download PDF</span>
+            {downloadingPdf ? (
+              <svg className="w-4 h-4 animate-spin text-indigo-600 dark:text-indigo-400" viewBox="0 0 24 24" fill="none">
+                <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8v8z" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="w-4 h-4 text-gray-500 dark:text-gray-400" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M4 16v2a2 2 0 002 2h12a2 2 0 002-2v-2M7 10l5 5m0 0l5-5m-5 5V4" />
+              </svg>
+            )}
+            <span className="hidden sm:inline">{downloadingPdf ? "Exporting..." : "Download PDF"}</span>
           </button>
 
           <button

@@ -21,6 +21,7 @@ router.get("/", async (req: AuthenticatedRequest, res: Response): Promise<void> 
         name: true,
         email: true,
         theme: true,
+        currency: true,
         avatar: true,
         googleId: true,
         _count: {
@@ -54,7 +55,7 @@ router.patch("/", async (req: AuthenticatedRequest, res: Response): Promise<void
       return
     }
 
-    const { name, email, theme, currentPassword, newPassword } = req.body
+    const { name, email, theme, currency, currentPassword, newPassword } = req.body
 
     const user = await prisma.user.findUnique({
       where: { id: userId },
@@ -103,6 +104,7 @@ router.patch("/", async (req: AuthenticatedRequest, res: Response): Promise<void
         ...(name && { name }),
         ...(email && { email }),
         ...(theme && { theme }),
+        ...(currency && { currency }),
         ...(newPassword && {
           password: await bcrypt.hash(newPassword, 10),
         }),
@@ -112,6 +114,7 @@ router.patch("/", async (req: AuthenticatedRequest, res: Response): Promise<void
         name: true,
         email: true,
         theme: true,
+        currency: true,
       },
     })
 

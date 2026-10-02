@@ -3,8 +3,10 @@ var __importDefault = (this && this.__importDefault) || function (mod) {
     return (mod && mod.__esModule) ? mod : { "default": mod };
 };
 Object.defineProperty(exports, "__esModule", { value: true });
+exports.CURRENCY_SYMBOLS = void 0;
 exports.sendVerificationEmail = sendVerificationEmail;
 exports.sendForgotPassWordEmail = sendForgotPassWordEmail;
+exports.getCurrencySymbol = getCurrencySymbol;
 exports.sendMonthlyDigestEmail = sendMonthlyDigestEmail;
 const nodemailer_1 = __importDefault(require("nodemailer"));
 const cleanEmailPass = (process.env.EMAIL_PASS || "")
@@ -73,8 +75,26 @@ async function sendForgotPassWordEmail(email, token) {
     `,
     });
 }
+exports.CURRENCY_SYMBOLS = {
+    INR: "₹",
+    USD: "$",
+    EUR: "€",
+    GBP: "£",
+    JPY: "¥",
+    AUD: "A$",
+    CAD: "C$",
+};
+function getCurrencySymbol(codeOrSymbol) {
+    if (!codeOrSymbol)
+        return "₹";
+    const trimmed = codeOrSymbol.trim();
+    const upper = trimmed.toUpperCase();
+    if (exports.CURRENCY_SYMBOLS[upper])
+        return exports.CURRENCY_SYMBOLS[upper];
+    return trimmed;
+}
 async function sendMonthlyDigestEmail(email, name, digest) {
-    const symbol = digest.currencySymbol || "$";
+    const symbol = getCurrencySymbol(digest.currencySymbol || digest.currencyCode || "INR");
     const formattedEarned = `${symbol}${digest.totalEarned.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formattedSpent = `${symbol}${digest.totalSpent.toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;
     const formattedSavings = `${symbol}${Math.abs(digest.netSavings).toLocaleString("en-US", { minimumFractionDigits: 2, maximumFractionDigits: 2 })}`;

@@ -34,7 +34,7 @@ async function generateAndSendDigestForUser(userId, referenceDate = new Date()) 
     try {
         const user = await prisma_1.prisma.user.findUnique({
             where: { id: userId },
-            select: { id: true, name: true, email: true, isVerified: true },
+            select: { id: true, name: true, email: true, isVerified: true, currency: true },
         });
         if (!user || !user.email) {
             return { success: false, error: "User not found or has no email" };
@@ -95,12 +95,16 @@ async function generateAndSendDigestForUser(userId, referenceDate = new Date()) 
             difference: Math.abs(totalBudgetLimit - totalSpent),
             percentage: hasBudget ? (totalSpent / totalBudgetLimit) * 100 : 0,
         };
+        const currencyCode = user.currency || "INR";
+        const currencySymbol = (0, mail_1.getCurrencySymbol)(currencyCode);
         const digestData = {
             monthName,
             year,
             totalEarned,
             totalSpent,
             netSavings,
+            currencyCode,
+            currencySymbol,
             biggestCategory,
             budget: budgetStatus,
         };

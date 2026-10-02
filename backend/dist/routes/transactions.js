@@ -97,17 +97,33 @@ router.post("/", (0, validate_1.validate)(transaction_schema_1.createTransaction
             return;
         }
         const { amount, type, description, date, categoryId, accountId } = req.body;
-        const transaction = await prisma_1.prisma.transaction.create({
-            data: {
-                amount: typeof amount === "number" ? amount : parseFloat(amount),
-                type,
-                description: description ? description.trim() : "",
-                date: new Date(date),
-                categoryId,
-                accountId: accountId || null,
-                userId,
-            },
-            include: { category: true, account: true },
+        const parsedAmount = typeof amount === "number" ? amount : parseFloat(amount);
+        // Use a Prisma transaction to atomically create the transaction AND update account balance
+        const [transaction] = await prisma_1.prisma.$transaction(async (tx) => {
+            const newTx = await tx.transaction.create({
+                data: {
+                    amount: parsedAmount,
+                    type,
+                    description: description ? description.trim() : "",
+                    date: new Date(date),
+                    categoryId,
+                    accountId: accountId || null,
+                    userId,
+                },
+                include: { category: true, account: true },
+            });
+            // Adjust account balance: income → +amount, expense → -amount
+            if (accountId) {
+                await tx.account.update({
+                    where: { id: accountId },
+                    data: {
+                        balance: {
+                            increment: type === "income" ? parsedAmount : -parsedAmount,
+                        },
+                    },
+                });
+            }
+            return [newTx];
         });
         await (0, notification_1.createNotification)({
             userId,
@@ -134,17 +150,49 @@ router.put("/", (0, validate_1.validate)(transaction_schema_1.updateTransactionS
             res.status(404).json({ success: false, error: "Transaction not found" });
             return;
         }
-        const updated = await prisma_1.prisma.transaction.update({
-            where: { id },
-            data: {
-                ...(amount !== undefined && { amount: typeof amount === "number" ? amount : parseFloat(amount) }),
-                ...(type !== undefined && { type }),
-                ...(description !== undefined && { description: description ? description.trim() : "" }),
-                ...(date !== undefined && { date: new Date(date) }),
-                ...(categoryId !== undefined && { categoryId }),
-                ...(accountId !== undefined && { accountId: accountId || null }),
-            },
-            include: { category: true, account: true },
+        const newAmount = amount !== undefined
+            ? (typeof amount === "number" ? amount : parseFloat(amount))
+            : existing.amount;
+        const newType = type !== undefined ? type : existing.type;
+        const newAccountId = accountId !== undefined ? (accountId || null) : existing.accountId;
+        // Use a Prisma transaction to atomically update the transaction AND rebalance accounts
+        const [updated] = await prisma_1.prisma.$transaction(async (tx) => {
+            // 1. Reverse the old balance effect on the old account
+            if (existing.accountId) {
+                await tx.account.update({
+                    where: { id: existing.accountId },
+                    data: {
+                        balance: {
+                            increment: existing.type === "income" ? -existing.amount : existing.amount,
+                        },
+                    },
+                });
+            }
+            // 2. Apply the new balance effect on the new account
+            if (newAccountId) {
+                await tx.account.update({
+                    where: { id: newAccountId },
+                    data: {
+                        balance: {
+                            increment: newType === "income" ? newAmount : -newAmount,
+                        },
+                    },
+                });
+            }
+            // 3. Update the transaction record
+            const updatedTx = await tx.transaction.update({
+                where: { id },
+                data: {
+                    ...(amount !== undefined && { amount: newAmount }),
+                    ...(type !== undefined && { type }),
+                    ...(description !== undefined && { description: description ? description.trim() : "" }),
+                    ...(date !== undefined && { date: new Date(date) }),
+                    ...(categoryId !== undefined && { categoryId }),
+                    ...(accountId !== undefined && { accountId: newAccountId }),
+                },
+                include: { category: true, account: true },
+            });
+            return [updatedTx];
         });
         res.json(updated);
     }
@@ -170,7 +218,21 @@ router.delete("/", async (req, res, next) => {
             res.status(404).json({ success: false, error: "Transaction not found" });
             return;
         }
-        await prisma_1.prisma.transaction.delete({ where: { id } });
+        // Atomically delete the transaction AND reverse its effect on account balance
+        await prisma_1.prisma.$transaction(async (tx) => {
+            await tx.transaction.delete({ where: { id } });
+            // Reverse the balance: income was +, so reverse with -; expense was -, so reverse with +
+            if (existing.accountId) {
+                await tx.account.update({
+                    where: { id: existing.accountId },
+                    data: {
+                        balance: {
+                            increment: existing.type === "income" ? -existing.amount : existing.amount,
+                        },
+                    },
+                });
+            }
+        });
         res.json({ success: true, message: "Deleted successfully" });
     }
     catch (error) {

@@ -1,6 +1,7 @@
 import { prisma } from "../lib/prisma"
-import { sendMonthlyDigestEmail, MonthlyDigestData } from "../lib/mail"
+import { sendMonthlyDigestEmail, MonthlyDigestData, getCurrencySymbol } from "../lib/mail"
 import { createNotification } from "../lib/notification"
+import { generateMonthlyReportPdf } from "./pdfReport"
 
 /**
  * Returns date range and metadata for the previous month relative to `referenceDate`.
@@ -37,7 +38,7 @@ export async function generateAndSendDigestForUser(
   try {
     const user = await prisma.user.findUnique({
       where: { id: userId },
-      select: { id: true, name: true, email: true, isVerified: true },
+      select: { id: true, name: true, email: true, isVerified: true, currency: true },
     })
 
     if (!user || !user.email) {
@@ -46,7 +47,7 @@ export async function generateAndSendDigestForUser(
 
     const { start, end, monthString, monthName, year } = getPreviousMonthRange(referenceDate)
 
-    // 1. Fetch transactions for the target month
+    // 1. Fetch transactions for the target month with category and account
     const transactions = await prisma.transaction.findMany({
       where: {
         userId,
@@ -57,6 +58,10 @@ export async function generateAndSendDigestForUser(
       },
       include: {
         category: true,
+        account: true,
+      },
+      orderBy: {
+        date: "desc",
       },
     })
 
@@ -114,18 +119,54 @@ export async function generateAndSendDigestForUser(
       percentage: hasBudget ? (totalSpent / totalBudgetLimit) * 100 : 0,
     }
 
+    const currencyCode = user.currency || "INR"
+    const currencySymbol = getCurrencySymbol(currencyCode)
+
     const digestData: MonthlyDigestData = {
       monthName,
       year,
       totalEarned,
       totalSpent,
       netSavings,
+      currencyCode,
+      currencySymbol,
       biggestCategory,
       budget: budgetStatus,
     }
 
-    // 5. Dispatch email via nodemailer
-    await sendMonthlyDigestEmail(user.email, user.name || "User", digestData)
+    // 5. Generate Monthly Transaction Report PDF
+    let pdfBuffer: Buffer | undefined
+    try {
+      pdfBuffer = await generateMonthlyReportPdf({
+        user: {
+          name: user.name,
+          email: user.email,
+          currency: currencyCode,
+        },
+        monthName,
+        year,
+        transactions,
+        totalIncome: totalEarned,
+        totalExpense: totalSpent,
+        netBalance: netSavings,
+        currencyCode,
+      })
+    } catch (pdfErr) {
+      console.error(`Failed to generate PDF statement for user ${userId}:`, pdfErr)
+    }
+
+    // 6. Dispatch email via nodemailer with attached PDF statement
+    await sendMonthlyDigestEmail(
+      user.email,
+      user.name || "User",
+      digestData,
+      pdfBuffer
+        ? {
+            filename: `SG-Finance-Transactions-${monthString}.pdf`,
+            content: pdfBuffer,
+          }
+        : undefined
+    )
 
     // 6. Record notification
     await createNotification({

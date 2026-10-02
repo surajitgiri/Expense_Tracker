@@ -90,12 +90,24 @@ export default function RegisterPage() {
     return (
         <div className="min-h-screen flex items-center justify-center bg-gray-100 dark:bg-gray-950 px-4 py-8">
             <div className="bg-white dark:bg-gray-800 p-8 rounded-2xl shadow-xl w-full max-w-md border border-gray-100 dark:border-gray-700 space-y-6">
+                <div className="flex flex-col items-center justify-center space-y-2">
+                    <div className="w-12 h-12 rounded-xl overflow-hidden bg-[#0C144C] border border-gray-200 dark:border-gray-700 flex items-center justify-center p-1 shadow-md">
+                        <img src="/logo.svg" alt="SG-Finance Logo" className="w-full h-full object-contain" />
+                    </div>
+                    <div className="text-center">
+                        <span className="font-extrabold text-base tracking-tight text-gray-900 dark:text-white block leading-tight">
+                            SG<span className="text-amber-500">-FINANCE</span>
+                        </span>
+                        <span className="text-[10px] uppercase tracking-widest text-gray-400 dark:text-gray-500 font-medium">Since 2020</span>
+                    </div>
+                </div>
+
                 <div className="text-center space-y-1">
                     <h2 className="text-2xl font-bold tracking-tight text-gray-900 dark:text-white">
                         Create an account
                     </h2>
                     <p className="text-xs text-gray-500 dark:text-gray-400">
-                        Get started with Expense Tracker today
+                        Get started with SG-Finance today
                     </p>
                 </div>
 

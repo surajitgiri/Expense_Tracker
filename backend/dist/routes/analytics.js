@@ -33,7 +33,9 @@ router.get("/", async (req, res) => {
             },
             _sum: { amount: true },
         });
-        const categoryIds = byCategory.map((b) => b.categoryId);
+        const categoryIds = byCategory
+            .map((b) => b.categoryId)
+            .filter((id) => Boolean(id));
         const categories = await prisma_1.prisma.category.findMany({
             where: { id: { in: categoryIds } },
         });

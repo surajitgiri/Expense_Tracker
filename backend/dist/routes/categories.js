@@ -2,6 +2,7 @@
 Object.defineProperty(exports, "__esModule", { value: true });
 const express_1 = require("express");
 const prisma_1 = require("../lib/prisma");
+const seedCategories_1 = require("../lib/seedCategories");
 const router = (0, express_1.Router)();
 // GET /api/categories
 router.get("/", async (req, res) => {
@@ -11,6 +12,9 @@ router.get("/", async (req, res) => {
             res.status(401).json({ error: "Unauthorized" });
             return;
         }
+        // Auto-seed default categories for users who have none yet
+        // (covers existing users + any new user who missed the registration seed)
+        await (0, seedCategories_1.seedDefaultCategories)(userId);
         const categories = await prisma_1.prisma.category.findMany({
             where: { userId },
             orderBy: { name: "asc" },
